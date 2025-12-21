@@ -1,79 +1,119 @@
 package exigent
 
+import "core:container/queue"
 import "core:mem"
-main :: proc() {
-
-}
 
 Context :: struct {
-	allocator, temp_allocator:   mem.Allocator,
 	screen_width, screen_height: int,
-	root, curr:                  ^Widget,
-	widget_stack:                [dynamic]^Widget,
-	num_widgets:                 int,
-	style:                       [dynamic]Style,
 	is_building:                 bool, // when between context_begin/context_end
-	widget_iterator:             Widget_Iterator, // available after context_end
+	num_widgets:                 int,
+	// persistent data
+	perm_allocator:              mem.Allocator,
+	input_prev, input_curr:      ^Input,
+	widget_stack:                [dynamic]^Widget,
+	style_stack:                 [dynamic]Style,
+	// temp data
+	temp_allocator:              mem.Allocator,
+	widget_root, widget_curr:    ^Widget,
 }
 
-context_default_init :: proc(
+context_init :: proc(
 	c: ^Context,
-	allocator := context.allocator,
+	key_min_index: int = 0,
+	key_max_index: int = 512,
+	perm_allocator := context.allocator,
 	temp_allocator := context.temp_allocator,
 ) {
-	context.allocator = allocator
-	c.allocator = allocator
-	context.temp_allocator = temp_allocator
-	c.temp_allocator = temp_allocator
+	c.perm_allocator = perm_allocator
 
-	c.widget_stack.allocator = c.temp_allocator
-	c.style.allocator = c.allocator
+	c.widget_stack.allocator = c.perm_allocator
 
+	c.input_prev = input_create(key_min_index, key_max_index, c.perm_allocator)
+	c.input_curr = input_create(key_min_index, key_max_index, c.perm_allocator)
+	c.style_stack.allocator = c.perm_allocator
 	style := Style{}
-	style_default_init(&style, allocator)
-	append(&c.style, style)
+	style_default_init(&style, perm_allocator) // TODO: allow caller override of default theme
+	append(&c.style_stack, style)
+
+	c.temp_allocator = temp_allocator
+}
+
+context_destroy :: proc(c: ^Context) {
+	context.allocator = c.perm_allocator
+	input_destroy(c.input_prev)
+	free(c.input_prev)
+	input_destroy(c.input_curr)
+	free(c.input_curr)
+	delete(c.widget_stack)
+	delete(c.style_stack)
 }
 
 begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	c.screen_width = screen_width
 	c.screen_height = screen_height
+	c.widget_root, c.widget_curr = nil, nil
 	c.num_widgets = 0
 	c.is_building = true
 }
 
 end :: proc(c: ^Context) {
 	assert(len(c.widget_stack) == 0, "every widget_begin must have a widge_end")
-	assert(len(c.style) == 1, "every style_push must have a style_pop")
+	assert(len(c.style_stack) == 1, "every style_push must have a style_pop")
+
 	c.is_building = false
-	widget_iterator_init(c, &c.widget_iterator)
-	c.root = nil
-	c.curr = nil
+	input_swap(c)
+	clear(&c.widget_stack)
 }
 
-context_cmd_next :: proc(c: ^Context) -> Command {
-	assert(c.is_building == false, "must end before iterating commands")
+Command_Iterator :: struct {
+	queued: [dynamic]Command,
+	idx:    int,
+}
+
+DEFAULT_CMDS_PER_WIDGET_HEURISTIC :: 5
+
+cmd_iterator_create :: proc(
+	c: ^Context,
+	cmds_per_widget_heuristic := DEFAULT_CMDS_PER_WIDGET_HEURISTIC,
+	allocator := context.temp_allocator,
+) -> Command_Iterator {
+	context.allocator = allocator
+
+	ci := Command_Iterator {
+		queued = make([dynamic]Command, 0, c.num_widgets * cmds_per_widget_heuristic),
+	}
+
+	widgets: queue.Queue(^Widget)
+	queue.init(&widgets, c.num_widgets, c.temp_allocator)
+	queue.push_back(&widgets, c.widget_root)
 
 	for true {
-		if len(c.widget_iterator.next) <= 0 {
-			clear(&c.widget_iterator.next)
-			return Command_Done{}
+		if queue.len(widgets) <= 0 {
+			break
 		}
 
-		next := pop(&c.widget_iterator.next)
-
-		// add children to front for BFS which is back-to-front rendering with
-		// our Widget tree by following parent to child in order
-		inject_at(&c.widget_iterator.next, 0, ..next.children[:])
+		next := queue.pop_front(&widgets)
+		queue.push_back_elems(&widgets, ..next.children[:])
 
 		if .DrawBackground in next.flags {
 			assert(Color_Type_BACKGROUND in next.style.colors)
 			color := next.style.colors[Color_Type_BACKGROUND]
-			return Command_Rect{rect = next.rect, color = color, alpha = next.alpha}
+			append(&ci.queued, Command_Rect{rect = next.rect, color = color, alpha = next.alpha})
 		}
-		// else continue popping to look for the next drawable widget
 	}
 
-	return Command_Done{}
+	return ci
+}
+
+cmd_iterator_destroy :: proc(ci: ^Command_Iterator) {
+	delete(ci.queued)
+}
+
+cmd_iterator_next :: proc(ci: ^Command_Iterator) -> Command {
+	if len(ci.queued) <= 0 {
+		return Command_Done{}
+	}
+	return pop(&ci.queued)
 }
 
 Command :: union {
@@ -87,17 +127,4 @@ Command_Rect :: struct {
 	rect:  Rect,
 	color: Color,
 	alpha: u8,
-}
-
-// Lifetime: temp_allocator
-@(private)
-Widget_Iterator :: struct {
-	next: [dynamic]^Widget,
-}
-
-@(private)
-widget_iterator_init :: proc(c: ^Context, wi: ^Widget_Iterator) {
-	wi.next.allocator = c.temp_allocator
-	reserve(&wi.next, c.num_widgets)
-	append(&wi.next, c.root)
 }

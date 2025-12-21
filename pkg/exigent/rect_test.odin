@@ -39,25 +39,25 @@ test_rect_cut :: proc(t: ^testing.T) {
 		{
 			desc = "cut 10 pixels horizontally on positive",
 			r = Rect{0, 0, 40, 40},
-			c = Cut{type = .Pixel, dim = .Vertical, value = 10},
+			c = Cut{type = .Pixel, dim = .Horizontal, value = 10},
 			expected = [2]Rect{Rect{0, 0, 10, 40}, Rect{10, 0, 30, 40}},
 		},
 		{
 			desc = "cut 10 pixels horizontally on negative",
 			r = Rect{-40, -40, 40, 40},
-			c = Cut{type = .Pixel, dim = .Vertical, value = 10},
+			c = Cut{type = .Pixel, dim = .Horizontal, value = 10},
 			expected = [2]Rect{Rect{-40, -40, 10, 40}, Rect{-30, -40, 30, 40}},
 		},
 		{
 			desc = "cut 10 pixels vertically on positive",
 			r = Rect{0, 0, 40, 40},
-			c = Cut{type = .Pixel, dim = .Horizontal, value = 10},
+			c = Cut{type = .Pixel, dim = .Vertical, value = 10},
 			expected = [2]Rect{Rect{0, 0, 40, 10}, Rect{0, 10, 40, 30}},
 		},
 		{
 			desc = "cut 10 pixels vertically on negative",
 			r = Rect{-40, -40, 40, 40},
-			c = Cut{type = .Pixel, dim = .Horizontal, value = 10},
+			c = Cut{type = .Pixel, dim = .Vertical, value = 10},
 			expected = [2]Rect{Rect{-40, -40, 40, 10}, Rect{-40, -30, 40, 30}},
 		},
 	}
