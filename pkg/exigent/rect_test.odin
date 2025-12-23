@@ -15,25 +15,25 @@ test_rect_cut :: proc(t: ^testing.T) {
 		{
 			desc = "cut half horizontally on positive",
 			r = Rect{0, 0, 40, 40},
-			c = CUT_H_HALF,
+			c = cut_h(0.5),
 			expected = [2]Rect{Rect{0, 0, 20, 40}, Rect{20, 0, 20, 40}},
 		},
 		{
 			desc = "cut half horizontally on negative",
 			r = Rect{-40, -40, 40, 40},
-			c = CUT_H_HALF,
+			c = cut_h(0.5),
 			expected = [2]Rect{Rect{-40, -40, 20, 40}, Rect{-20, -40, 20, 40}},
 		},
 		{
 			desc = "cut half vertically on positive",
 			r = Rect{0, 0, 40, 40},
-			c = CUT_V_HALF,
+			c = cut_v(0.5),
 			expected = [2]Rect{Rect{0, 0, 40, 20}, Rect{0, 20, 40, 20}},
 		},
 		{
 			desc = "cut half vertically on negative",
 			r = Rect{-40, -40, 40, 40},
-			c = CUT_V_HALF,
+			c = cut_v(0.5),
 			expected = [2]Rect{Rect{-40, -40, 40, 20}, Rect{-40, -20, 40, 20}},
 		},
 		{

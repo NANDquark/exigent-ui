@@ -111,8 +111,6 @@ cut_h :: proc(value: f32) -> Cut {
 	return Cut{type = .Percent, dim = .Horizontal, value = value}
 }
 
-CUT_H_HALF := cut_h(0.5)
-
 cut_h_px :: proc(value: f32) -> Cut {
 	return Cut{type = .Pixel, dim = .Horizontal, value = value}
 }
@@ -120,8 +118,6 @@ cut_h_px :: proc(value: f32) -> Cut {
 cut_v :: proc(value: f32) -> Cut {
 	return Cut{type = .Percent, dim = .Vertical, value = value}
 }
-
-CUT_V_HALF := cut_v(0.5)
 
 cut_v_px :: proc(value: f32) -> Cut {
 	return Cut{type = .Pixel, dim = .Vertical, value = value}
