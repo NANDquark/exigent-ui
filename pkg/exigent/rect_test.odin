@@ -315,25 +315,19 @@ test_rect_align :: proc(t: ^testing.T) {
 		outer:    Rect,
 		width:    f32,
 		height:   f32,
-		align:    Rect_Align,
+		h:        H_Align,
+		v:        V_Align,
 		expected: Rect,
 	}
 
 	cases := []TestCaseAlign {
 		{
-			desc = "align none on positive rect",
-			outer = Rect{0, 0, 100, 100},
-			width = 50,
-			height = 50,
-			align = .None,
-			expected = Rect{0, 0, 50, 50},
-		},
-		{
 			desc = "align horizontal on positive rect",
 			outer = Rect{0, 0, 100, 100},
 			width = 50,
 			height = 50,
-			align = .Horizontal,
+			h = .Center,
+			v = .Top,
 			expected = Rect{25, 0, 50, 50},
 		},
 		{
@@ -341,7 +335,8 @@ test_rect_align :: proc(t: ^testing.T) {
 			outer = Rect{0, 0, 100, 100},
 			width = 50,
 			height = 50,
-			align = .Vertical,
+			h = .Left,
+			v = .Center,
 			expected = Rect{0, 25, 50, 50},
 		},
 		{
@@ -349,7 +344,8 @@ test_rect_align :: proc(t: ^testing.T) {
 			outer = Rect{0, 0, 100, 100},
 			width = 50,
 			height = 50,
-			align = .Both,
+			h = .Center,
+			v = .Center,
 			expected = Rect{25, 25, 50, 50},
 		},
 		{
@@ -357,15 +353,26 @@ test_rect_align :: proc(t: ^testing.T) {
 			outer = Rect{0, 0, 100, 100},
 			width = 100,
 			height = 100,
-			align = .Both,
+			h = .Center,
+			v = .Center,
 			expected = Rect{0, 0, 100, 100},
+		},
+		{
+			desc = "align none on positive rect",
+			outer = Rect{0, 0, 100, 100},
+			width = 50,
+			height = 50,
+			h = .Left,
+			v = .Top,
+			expected = Rect{0, 0, 50, 50},
 		},
 		{
 			desc = "align none on negative rect",
 			outer = Rect{-50, -50, 100, 100},
 			width = 30,
 			height = 40,
-			align = .None,
+			h = .Left,
+			v = .Top,
 			expected = Rect{-50, -50, 30, 40},
 		},
 		{
@@ -373,7 +380,8 @@ test_rect_align :: proc(t: ^testing.T) {
 			outer = Rect{-50, -50, 100, 100},
 			width = 30,
 			height = 40,
-			align = .Horizontal,
+			h = .Center,
+			v = .Top,
 			expected = Rect{-15, -50, 30, 40},
 		},
 		{
@@ -381,7 +389,8 @@ test_rect_align :: proc(t: ^testing.T) {
 			outer = Rect{-50, -50, 100, 100},
 			width = 30,
 			height = 40,
-			align = .Vertical,
+			h = .Left,
+			v = .Center,
 			expected = Rect{-50, -20, 30, 40},
 		},
 		{
@@ -389,13 +398,14 @@ test_rect_align :: proc(t: ^testing.T) {
 			outer = Rect{-50, -50, 100, 100},
 			width = 30,
 			height = 40,
-			align = .Both,
+			h = .Center,
+			v = .Center,
 			expected = Rect{-15, -20, 30, 40},
 		},
 	}
 
 	for c in cases {
-		result := rect_align(c.outer, c.width, c.height, c.align)
+		result := rect_align(c.outer, c.width, c.height, c.h, c.v)
 		testing.expectf(
 			t,
 			result == c.expected,

@@ -86,28 +86,48 @@ rect_inset :: proc(r: Rect, i: Inset) -> Rect {
 	return r
 }
 
-Rect_Align :: enum {
-	None,
-	Horizontal,
-	Vertical,
-	Both,
+H_Align :: enum {
+	Left,
+	Center,
+	Right,
 }
 
-// Create a new Rect with the given width & height which is aligned inside the outer Rect
-rect_align :: proc(outer: Rect, width, height: f32, align: Rect_Align) -> Rect {
+V_Align :: enum {
+	Top,
+	Center,
+	Bottom,
+}
+
+// Create a new Rect with the given width & height aligned inside the outer Rect
+rect_align :: proc(
+	outer: Rect,
+	width, height: f32,
+	h: H_Align = .Center,
+	v: V_Align = .Center,
+) -> Rect {
 	assert(width <= outer.width && height <= outer.height, "new Rect must fit within outer Rect")
 
 	inner := Rect {
-		x      = outer.x,
-		y      = outer.y,
 		width  = width,
 		height = height,
 	}
-	if align == .Horizontal || align == .Both {
-		inner.x = outer.x + (outer.width / 2) - (width / 2)
+
+	switch h {
+	case .Left:
+		inner.x = outer.x
+	case .Center:
+		inner.x = outer.x + (outer.width - width) * 0.5
+	case .Right:
+		inner.x = outer.x + outer.width - width
 	}
-	if align == .Vertical || align == .Both {
-		inner.y = outer.y + (outer.height / 2) - (height / 2)
+
+	switch v {
+	case .Top:
+		inner.y = outer.y
+	case .Center:
+		inner.y = outer.y + (outer.height - height) * 0.5
+	case .Bottom:
+		inner.y = outer.y + outer.height - height
 	}
 
 	return inner
