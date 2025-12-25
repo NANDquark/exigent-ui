@@ -61,7 +61,7 @@ main :: proc() {
 		// Update - Build UI
 		ui.begin(ctx, 800, 600)
 		r := ui.Rect{0, 0, 800, 600}
-		r = ui.rect_inset(r, ui.inset(90))
+		r = ui.rect_inset(r, ui.Inset{90, 90, 90, 90})
 		// ui.style_push(ctx)
 		// ui.style_set_color(ctx, ui.Color_Type_BACKGROUND_FOCUSED, ui.Color{0, 255, 0})
 		// ui.panel(ctx, ui.key(UI_ID.PANEL), r)

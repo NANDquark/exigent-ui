@@ -5,7 +5,7 @@ Widget :: struct {
 	key:              Widget_Key,
 	parent:           ^Widget,
 	children:         [dynamic]^Widget,
-	rect:             Rect,
+	_rect:            Rect,
 	style:            Style,
 	alpha:            u8,
 	flags:            bit_set[Widget_Flags],
@@ -44,7 +44,7 @@ widget_begin :: proc(
 
 	w := new(Widget, c.temp_allocator)
 	w.alpha = 255
-	w.rect = r
+	w._rect = r
 	w.border_style = border_style
 	w.border_thickness = border_thickness
 
@@ -78,6 +78,10 @@ widget_flags :: proc(c: ^Context, flags: bit_set[Widget_Flags]) {
 	c.widget_curr.flags += flags
 }
 
+widget_get_rect :: proc(c: ^Context) -> Rect {
+	return c.widget_curr._rect
+}
+
 // pick the top-most widget at the mouse_pos
 @(private)
 widget_pick :: proc(w: ^Widget, mouse_pos: [2]f32) -> (focus: ^Widget, found: bool) {
@@ -88,7 +92,7 @@ widget_pick :: proc(w: ^Widget, mouse_pos: [2]f32) -> (focus: ^Widget, found: bo
 	// TODO: This requires that each parent always contains their children fully.
 	// Should we assert this during widget building to prevent surprises? Or
 	// do we want an alternate approach?
-	if !rect_contains(w.rect, mouse_pos) {
+	if !rect_contains(w._rect, mouse_pos) {
 		return nil, false
 	}
 
@@ -128,7 +132,7 @@ panel :: proc(c: ^Context, key: Widget_Key, r: Rect) {
 
 button :: proc(c: ^Context, key: Widget_Key, r: Rect) -> Widget_Interaction {
 	widget_begin(c, key, r, .Square, 2)
-	widget_flags(c, {.DrawBackground})
+	widget_flags(c, {.DrawBackground, .DrawBorder})
 	widget_end(c)
 	return c.widget_curr.interaction
 }

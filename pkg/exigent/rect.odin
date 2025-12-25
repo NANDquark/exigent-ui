@@ -8,157 +8,107 @@ Rect :: struct {
 // Rect contains the point (pt), using a half-open rectangle to avoid double-hits
 // on shared edges
 rect_contains :: proc(r: Rect, pt: [2]f32) -> bool {
-	assert(r.width > 0 && r.height > 0, "Rect must have positive width & height")
 	return pt.x >= r.x && pt.y >= r.y && pt.x < r.x + r.width && pt.y < r.y + r.height
 }
 
-rect_cut :: proc(r: Rect, c: Cut) -> (Rect, Rect) {
-	assert(r.width > 0 && r.height > 0, "Rect must have non-zero area to cut")
-
-	switch c.type {
-	case .Percent:
-		switch c.dim {
-		case .Horizontal:
-			left_width := r.width * c.value
-			right_width := r.width - left_width
-			left := Rect {
-				x      = r.x,
-				y      = r.y,
-				width  = left_width,
-				height = r.height,
-			}
-			right := Rect {
-				x      = r.x + left_width,
-				y      = r.y,
-				width  = right_width,
-				height = r.height,
-			}
-			return left, right
-		case .Vertical:
-			top_height := r.height * c.value
-			bot_height := r.height - top_height
-			top := Rect {
-				x      = r.x,
-				y      = r.y,
-				width  = r.width,
-				height = top_height,
-			}
-			bot := Rect {
-				x      = r.x,
-				y      = r.y + top_height,
-				width  = r.width,
-				height = bot_height,
-			}
-			return top, bot
-		}
-	case .Pixel:
-		switch c.dim {
-		case .Horizontal:
-			left_width := c.value
-			right_width := r.width - left_width
-			left := Rect {
-				x      = r.x,
-				y      = r.y,
-				width  = left_width,
-				height = r.height,
-			}
-			right := Rect {
-				x      = r.x + left_width,
-				y      = r.y,
-				width  = right_width,
-				height = r.height,
-			}
-			return left, right
-		case .Vertical:
-			top_height := c.value
-			bot_height := r.height - top_height
-			top := Rect {
-				x      = r.x,
-				y      = r.y,
-				width  = r.width,
-				height = top_height,
-			}
-			bot := Rect {
-				x      = r.x,
-				y      = r.y + top_height,
-				width  = r.width,
-				height = bot_height,
-			}
-			return top, bot
-		}
+rect_cut_left :: proc(r: ^Rect, pixels: f32) -> Rect {
+	assert(pixels <= r.width, "cannot cut more than width of rect from left")
+	left := Rect {
+		x      = r.x,
+		y      = r.y,
+		width  = pixels,
+		height = r.height,
 	}
-
-	return Rect{}, Rect{}
+	r.x += pixels
+	r.width -= pixels
+	return left
 }
 
-Cut :: struct {
-	type:  Cut_Type,
-	dim:   Cut_Dim,
-	value: f32,
+rect_cut_right :: proc(r: ^Rect, pixels: f32) -> Rect {
+	assert(pixels <= r.width, "cannot cut more than width of rect from right")
+	r.width -= pixels
+	right := Rect {
+		x      = r.x + r.width,
+		y      = r.y,
+		width  = pixels,
+		height = r.height,
+	}
+	return right
 }
 
-Cut_Type :: enum {
-	Percent,
-	Pixel,
+rect_cut_top :: proc(r: ^Rect, pixels: f32) -> Rect {
+	assert(pixels <= r.height, "cannot cut more than height of rect from top")
+	top := Rect {
+		x      = r.x,
+		y      = r.y,
+		width  = r.width,
+		height = pixels,
+	}
+	r.y += pixels
+	r.height -= pixels
+	return top
 }
 
-Cut_Dim :: enum {
-	Horizontal,
-	Vertical,
+rect_cut_bot :: proc(r: ^Rect, pixels: f32) -> Rect {
+	assert(pixels <= r.height, "cannot cut more than height of rect from bottom")
+	r.height -= pixels
+	bot := Rect {
+		x      = r.x,
+		y      = r.y + r.height,
+		width  = r.width,
+		height = pixels,
+	}
+	return bot
 }
 
-cut_h :: proc(value: f32) -> Cut {
-	return Cut{type = .Percent, dim = .Horizontal, value = value}
-}
-
-cut_h_px :: proc(value: f32) -> Cut {
-	return Cut{type = .Pixel, dim = .Horizontal, value = value}
-}
-
-cut_v :: proc(value: f32) -> Cut {
-	return Cut{type = .Percent, dim = .Vertical, value = value}
-}
-
-cut_v_px :: proc(value: f32) -> Cut {
-	return Cut{type = .Pixel, dim = .Vertical, value = value}
+Inset :: struct {
+	Top, Right, Bottom, Left: f32,
 }
 
 rect_inset :: proc(r: Rect, i: Inset) -> Rect {
 	r := r
 
-	for s in i.sides {
-		switch s {
-		case .Top:
-			r.y += i.amount[.Top]
-			r.height -= i.amount[.Top]
-		case .Right:
-			r.width -= i.amount[.Right]
-		case .Bottom:
-			r.height -= i.amount[.Bottom]
-		case .Left:
-			r.x += i.amount[.Left]
-			r.width -= i.amount[.Left]
-		}
+	if i.Top != 0 {
+		r.y += i.Top
+		r.height -= i.Top
+	}
+	if i.Right != 0 {
+		r.width -= i.Right
+	}
+	if i.Bottom != 0 {
+		r.height -= i.Bottom
+	}
+	if i.Left != 0 {
+		r.x += i.Left
+		r.width -= i.Left
 	}
 
 	return r
 }
 
-Inset :: struct {
-	amount: [Inset_Side]f32,
-	sides:  bit_set[Inset_Side],
+Rect_Align :: enum {
+	None,
+	Horizontal,
+	Vertical,
+	Both,
 }
 
-Inset_Side :: enum {
-	Top,
-	Right,
-	Bottom,
-	Left,
-}
+// Create a new Rect with the given width & height which is aligned inside the outer Rect
+rect_align :: proc(outer: Rect, width, height: f32, align: Rect_Align) -> Rect {
+	assert(width <= outer.width && height <= outer.height, "new Rect must fit within outer Rect")
 
-inset :: proc(amount: f32) -> Inset {
-	return Inset {
-		amount = {.Top = amount, .Right = amount, .Bottom = amount, .Left = amount},
-		sides = {.Top, .Right, .Bottom, .Left},
+	inner := Rect {
+		x      = outer.x,
+		y      = outer.y,
+		width  = width,
+		height = height,
 	}
+	if align == .Horizontal || align == .Both {
+		inner.x = outer.x + (outer.width / 2) - (width / 2)
+	}
+	if align == .Vertical || align == .Both {
+		inner.y = outer.y + (outer.height / 2) - (height / 2)
+	}
+
+	return inner
 }

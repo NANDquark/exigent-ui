@@ -3,87 +3,6 @@ package exigent
 import "core:testing"
 
 @(test)
-test_rect_cut :: proc(t: ^testing.T) {
-	TestCase :: struct {
-		desc:     string,
-		r:        Rect,
-		c:        Cut,
-		expected: [2]Rect,
-	}
-
-	cases := []TestCase {
-		{
-			desc = "cut half horizontally on positive",
-			r = Rect{0, 0, 40, 40},
-			c = cut_h(0.5),
-			expected = [2]Rect{Rect{0, 0, 20, 40}, Rect{20, 0, 20, 40}},
-		},
-		{
-			desc = "cut half horizontally on negative",
-			r = Rect{-40, -40, 40, 40},
-			c = cut_h(0.5),
-			expected = [2]Rect{Rect{-40, -40, 20, 40}, Rect{-20, -40, 20, 40}},
-		},
-		{
-			desc = "cut half vertically on positive",
-			r = Rect{0, 0, 40, 40},
-			c = cut_v(0.5),
-			expected = [2]Rect{Rect{0, 0, 40, 20}, Rect{0, 20, 40, 20}},
-		},
-		{
-			desc = "cut half vertically on negative",
-			r = Rect{-40, -40, 40, 40},
-			c = cut_v(0.5),
-			expected = [2]Rect{Rect{-40, -40, 40, 20}, Rect{-40, -20, 40, 20}},
-		},
-		{
-			desc = "cut 10 pixels horizontally on positive",
-			r = Rect{0, 0, 40, 40},
-			c = Cut{type = .Pixel, dim = .Horizontal, value = 10},
-			expected = [2]Rect{Rect{0, 0, 10, 40}, Rect{10, 0, 30, 40}},
-		},
-		{
-			desc = "cut 10 pixels horizontally on negative",
-			r = Rect{-40, -40, 40, 40},
-			c = Cut{type = .Pixel, dim = .Horizontal, value = 10},
-			expected = [2]Rect{Rect{-40, -40, 10, 40}, Rect{-30, -40, 30, 40}},
-		},
-		{
-			desc = "cut 10 pixels vertically on positive",
-			r = Rect{0, 0, 40, 40},
-			c = Cut{type = .Pixel, dim = .Vertical, value = 10},
-			expected = [2]Rect{Rect{0, 0, 40, 10}, Rect{0, 10, 40, 30}},
-		},
-		{
-			desc = "cut 10 pixels vertically on negative",
-			r = Rect{-40, -40, 40, 40},
-			c = Cut{type = .Pixel, dim = .Vertical, value = 10},
-			expected = [2]Rect{Rect{-40, -40, 40, 10}, Rect{-40, -30, 40, 30}},
-		},
-	}
-
-	for c in cases {
-		r1, r2 := rect_cut(c.r, c.c)
-		testing.expectf(
-			t,
-			r1 == c.expected[0],
-			"\n%s\nexpected r1: %v,\nactual: %v",
-			c.desc,
-			c.expected[0],
-			r1,
-		)
-		testing.expectf(
-			t,
-			r2 == c.expected[1],
-			"\n%s\nexpected r2: %v,\nactual: %v",
-			c.desc,
-			c.expected[1],
-			r2,
-		)
-	}
-}
-
-@(test)
 test_rect_inset :: proc(t: ^testing.T) {
 	TestCaseInset :: struct {
 		desc:     string,
@@ -94,142 +13,75 @@ test_rect_inset :: proc(t: ^testing.T) {
 
 	cases := []TestCaseInset {
 		{
+			desc = "zero insets",
+			r = Rect{0, 0, 100, 100},
+			i = Inset{0, 0, 0, 0},
+			expected = Rect{0, 0, 100, 100},
+		},
+		{
 			desc = "positive top inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = 10,
-					Inset_Side.Right = 0,
-					Inset_Side.Bottom = 0,
-					Inset_Side.Left = 0,
-				},
-				sides = {.Top},
-			},
+			i = Inset{Top = 10, Right = 0, Bottom = 0, Left = 0},
 			expected = Rect{0, 10, 100, 90},
 		},
 		{
 			desc = "positive left inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = 0,
-					Inset_Side.Right = 0,
-					Inset_Side.Bottom = 0,
-					Inset_Side.Left = 5,
-				},
-				sides = {.Left},
-			},
+			i = Inset{Top = 0, Right = 0, Bottom = 0, Left = 5},
 			expected = Rect{5, 0, 95, 100},
 		},
 		{
 			desc = "positive right inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = 0,
-					Inset_Side.Right = 3,
-					Inset_Side.Bottom = 0,
-					Inset_Side.Left = 0,
-				},
-				sides = {.Right},
-			},
+			i = Inset{Top = 0, Right = 3, Bottom = 0, Left = 0},
 			expected = Rect{0, 0, 97, 100},
 		},
 		{
 			desc = "positive bottom inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = 0,
-					Inset_Side.Right = 0,
-					Inset_Side.Bottom = 2,
-					Inset_Side.Left = 0,
-				},
-				sides = {.Bottom},
-			},
+			i = Inset{Top = 0, Right = 0, Bottom = 2, Left = 0},
 			expected = Rect{0, 0, 100, 98},
 		},
 		{
 			desc = "negative top inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = -10,
-					Inset_Side.Right = 0,
-					Inset_Side.Bottom = 0,
-					Inset_Side.Left = 0,
-				},
-				sides = {.Top},
-			},
+			i = Inset{Top = -10, Right = 0, Bottom = 0, Left = 0},
 			expected = Rect{0, -10, 100, 110},
 		},
 		{
 			desc = "negative left inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = 0,
-					Inset_Side.Right = 0,
-					Inset_Side.Bottom = 0,
-					Inset_Side.Left = -5,
-				},
-				sides = {.Left},
-			},
+			i = Inset{Top = 0, Right = 0, Bottom = 0, Left = -5},
 			expected = Rect{-5, 0, 105, 100},
 		},
 		{
 			desc = "negative right inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = 0,
-					Inset_Side.Right = -3,
-					Inset_Side.Bottom = 0,
-					Inset_Side.Left = 0,
-				},
-				sides = {.Right},
-			},
+			i = Inset{Top = 0, Right = -3, Bottom = 0, Left = 0},
 			expected = Rect{0, 0, 103, 100},
 		},
 		{
 			desc = "negative bottom inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {
-					Inset_Side.Top = 0,
-					Inset_Side.Right = 0,
-					Inset_Side.Bottom = -2,
-					Inset_Side.Left = 0,
-				},
-				sides = {.Bottom},
-			},
+			i = Inset{Top = 0, Right = 0, Bottom = -2, Left = 0},
 			expected = Rect{0, 0, 100, 102},
 		},
 		{
 			desc = "positive all sides",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {.Top = 1, .Right = 2, .Bottom = 3, .Left = 4},
-				sides = {.Top, .Right, .Bottom, .Left},
-			},
+			i = Inset{Top = 1, Right = 2, Bottom = 3, Left = 4},
 			expected = Rect{4, 1, 94, 96},
 		},
 		{
 			desc = "negative all sides",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {.Top = -1, .Right = -2, .Bottom = -3, .Left = -4},
-				sides = {.Top, .Right, .Bottom, .Left},
-			},
+			i = Inset{Top = -1, Right = -2, Bottom = -3, Left = -4},
 			expected = Rect{-4, -1, 106, 104},
 		},
 		{
 			desc = "mixed insets: positive top and left, negative right and bottom",
 			r = Rect{0, 0, 100, 100},
-			i = Inset {
-				amount = {.Top = 5, .Left = 10, .Right = -2, .Bottom = -3},
-				sides = {.Top, .Left, .Right, .Bottom},
-			},
+			i = Inset{Top = 5, Left = 10, Right = -2, Bottom = -3},
 			expected = Rect{10, 5, 92, 98},
 		},
 	}
@@ -243,6 +95,138 @@ test_rect_inset :: proc(t: ^testing.T) {
 			c.desc,
 			c.expected,
 			result,
+		)
+	}
+}
+
+@(test)
+test_rect_cut_side :: proc(t: ^testing.T) {
+	TestCase :: struct {
+		desc:              string,
+		initial:           Rect,
+		pixels:            f32,
+		cut_func:          proc(_: ^Rect, _: f32) -> Rect,
+		expected_returned: Rect,
+		expected_modified: Rect,
+	}
+
+	cases := []TestCase {
+		{
+			desc = "cut left 10 pixels from positive rect",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 10,
+			cut_func = rect_cut_left,
+			expected_returned = Rect{0, 0, 10, 100},
+			expected_modified = Rect{10, 0, 90, 100},
+		},
+		{
+			desc = "cut full width from left",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 100,
+			cut_func = rect_cut_left,
+			expected_returned = Rect{0, 0, 100, 100},
+			expected_modified = Rect{100, 0, 0, 100},
+		},
+		{
+			desc = "cut left 5 pixels from negative rect",
+			initial = Rect{-50, -50, 100, 100},
+			pixels = 5,
+			cut_func = rect_cut_left,
+			expected_returned = Rect{-50, -50, 5, 100},
+			expected_modified = Rect{-45, -50, 95, 100},
+		},
+		{
+			desc = "cut right 20 pixels from positive rect",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 20,
+			cut_func = rect_cut_right,
+			expected_returned = Rect{80, 0, 20, 100},
+			expected_modified = Rect{0, 0, 80, 100},
+		},
+		{
+			desc = "cut full width from right",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 100,
+			cut_func = rect_cut_right,
+			expected_returned = Rect{0, 0, 100, 100},
+			expected_modified = Rect{0, 0, 0, 100},
+		},
+		{
+			desc = "cut right 15 pixels from negative rect",
+			initial = Rect{-50, -50, 100, 100},
+			pixels = 15,
+			cut_func = rect_cut_right,
+			expected_returned = Rect{35, -50, 15, 100},
+			expected_modified = Rect{-50, -50, 85, 100},
+		},
+		{
+			desc = "cut top 30 pixels from positive rect",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 30,
+			cut_func = rect_cut_top,
+			expected_returned = Rect{0, 0, 100, 30},
+			expected_modified = Rect{0, 30, 100, 70},
+		},
+		{
+			desc = "cut full height from top",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 100,
+			cut_func = rect_cut_top,
+			expected_returned = Rect{0, 0, 100, 100},
+			expected_modified = Rect{0, 100, 100, 0},
+		},
+		{
+			desc = "cut top 25 pixels from negative rect",
+			initial = Rect{-50, -50, 100, 100},
+			pixels = 25,
+			cut_func = rect_cut_top,
+			expected_returned = Rect{-50, -50, 100, 25},
+			expected_modified = Rect{-50, -25, 100, 75},
+		},
+		{
+			desc = "cut bottom 40 pixels from positive rect",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 40,
+			cut_func = rect_cut_bot,
+			expected_returned = Rect{0, 60, 100, 40},
+			expected_modified = Rect{0, 0, 100, 60},
+		},
+		{
+			desc = "cut full height from bottom",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 100,
+			cut_func = rect_cut_bot,
+			expected_returned = Rect{0, 0, 100, 100},
+			expected_modified = Rect{0, 0, 100, 0},
+		},
+		{
+			desc = "cut bottom 35 pixels from negative rect",
+			initial = Rect{-50, -50, 100, 100},
+			pixels = 35,
+			cut_func = rect_cut_bot,
+			expected_returned = Rect{-50, 15, 100, 35},
+			expected_modified = Rect{-50, -50, 100, 65},
+		},
+	}
+
+	for c in cases {
+		r := c.initial
+		returned := c.cut_func(&r, c.pixels)
+		testing.expectf(
+			t,
+			returned == c.expected_returned,
+			"\n%s\nexpected returned: %v,\nactual: %v",
+			c.desc,
+			c.expected_returned,
+			returned,
+		)
+		testing.expectf(
+			t,
+			r == c.expected_modified,
+			"\n%s\nexpected modified: %v,\nactual: %v",
+			c.desc,
+			c.expected_modified,
+			r,
 		)
 	}
 }
@@ -301,6 +285,12 @@ test_rect_contains :: proc(t: ^testing.T) {
 			pt = {-10, -10},
 			expected = false,
 		},
+		{
+			desc = "zero-sized rectangle contains nothing",
+			r = Rect{0, 0, 0, 0},
+			pt = {0, 0},
+			expected = false,
+		},
 	}
 
 	for c in cases {
@@ -314,6 +304,105 @@ test_rect_contains :: proc(t: ^testing.T) {
 			result,
 			c.r,
 			c.pt,
+		)
+	}
+}
+
+@(test)
+test_rect_align :: proc(t: ^testing.T) {
+	TestCaseAlign :: struct {
+		desc:     string,
+		outer:    Rect,
+		width:    f32,
+		height:   f32,
+		align:    Rect_Align,
+		expected: Rect,
+	}
+
+	cases := []TestCaseAlign {
+		{
+			desc = "align none on positive rect",
+			outer = Rect{0, 0, 100, 100},
+			width = 50,
+			height = 50,
+			align = .None,
+			expected = Rect{0, 0, 50, 50},
+		},
+		{
+			desc = "align horizontal on positive rect",
+			outer = Rect{0, 0, 100, 100},
+			width = 50,
+			height = 50,
+			align = .Horizontal,
+			expected = Rect{25, 0, 50, 50},
+		},
+		{
+			desc = "align vertical on positive rect",
+			outer = Rect{0, 0, 100, 100},
+			width = 50,
+			height = 50,
+			align = .Vertical,
+			expected = Rect{0, 25, 50, 50},
+		},
+		{
+			desc = "align both on positive rect",
+			outer = Rect{0, 0, 100, 100},
+			width = 50,
+			height = 50,
+			align = .Both,
+			expected = Rect{25, 25, 50, 50},
+		},
+		{
+			desc = "align both with exact fit",
+			outer = Rect{0, 0, 100, 100},
+			width = 100,
+			height = 100,
+			align = .Both,
+			expected = Rect{0, 0, 100, 100},
+		},
+		{
+			desc = "align none on negative rect",
+			outer = Rect{-50, -50, 100, 100},
+			width = 30,
+			height = 40,
+			align = .None,
+			expected = Rect{-50, -50, 30, 40},
+		},
+		{
+			desc = "align horizontal on negative rect",
+			outer = Rect{-50, -50, 100, 100},
+			width = 30,
+			height = 40,
+			align = .Horizontal,
+			expected = Rect{-15, -50, 30, 40},
+		},
+		{
+			desc = "align vertical on negative rect",
+			outer = Rect{-50, -50, 100, 100},
+			width = 30,
+			height = 40,
+			align = .Vertical,
+			expected = Rect{-50, -20, 30, 40},
+		},
+		{
+			desc = "align both on negative rect",
+			outer = Rect{-50, -50, 100, 100},
+			width = 30,
+			height = 40,
+			align = .Both,
+			expected = Rect{-15, -20, 30, 40},
+		},
+	}
+
+	for c in cases {
+		result := rect_align(c.outer, c.width, c.height, c.align)
+		testing.expectf(
+			t,
+			result == c.expected,
+			"\n%s\nexpected: %v,\nactual: %v",
+			c.desc,
+			c.expected,
+			result,
 		)
 	}
 }

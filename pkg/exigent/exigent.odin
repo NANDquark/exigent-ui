@@ -99,7 +99,7 @@ cmd_iterator_create :: proc(
 		if .DrawBackground in next.flags {
 			assert(Color_Type_BACKGROUND in next.style.colors)
 			cmd := Command_Rect {
-				rect  = next.rect,
+				rect  = next._rect,
 				color = next.style.colors[Color_Type_BACKGROUND],
 				alpha = next.alpha,
 			}
