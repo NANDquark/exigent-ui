@@ -34,6 +34,16 @@ text_style_init :: proc(
 	reg.width_fn = width_fn
 }
 
+text_style_push :: proc(c: ^Context, type: Text_Style_Type) {
+	_text_style_check()
+	append(&c.text_style_stack, type)
+}
+
+text_style_pop :: proc(c: ^Context) {
+	assert(len(c.text_style_stack) > 0, "no text styles to pop")
+	pop(&c.text_style_stack)
+}
+
 @(private = "file")
 _text_style_check :: proc() {
 	assert(reg.initialized, "must register default text style with text_style_init")

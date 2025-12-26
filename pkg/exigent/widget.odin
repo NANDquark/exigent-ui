@@ -1,6 +1,7 @@
 package exigent
 
 import "base:intrinsics"
+import "core:strings"
 
 Widget :: struct {
 	key:              Widget_Key,
@@ -86,8 +87,62 @@ widget_get_rect :: proc(c: ^Context) -> Rect {
 	return c.widget_curr.rect
 }
 
+widget_text :: proc {
+	widget_text_at_offset,
+	widget_text_aligned,
+}
+
+Text_Align_H :: enum {
+	Left,
+	Center,
+	Right,
+}
+
+Text_Align_V :: enum {
+	Top,
+	Center,
+	Bottom,
+}
+
+widget_text_aligned :: proc(
+	c: ^Context,
+	text: string,
+	h_align: Text_Align_H,
+	v_align: Text_Align_V,
+) {
+	assert(!strings.contains(text, "\n"), "multiline text not supported yet")
+
+	text_style := text_style_curr(c)
+	r := widget_get_rect(c)
+	tw := text_width(c, text)
+
+	offset: [2]f32
+
+	switch h_align {
+	case .Left:
+		offset.x = 0
+	case .Center:
+		offset.x = (r.width - f32(tw)) * 0.5
+	case .Right:
+		offset.x = r.width - f32(tw)
+	}
+
+	switch v_align {
+	case .Top:
+		offset.y = 0
+	case .Center:
+		offset.y = (r.height - text_style.line_height) * 0.5
+	case .Bottom:
+		offset.y = r.height - text_style.line_height
+	}
+
+	widget_text_at_offset(c, text, offset)
+}
+
 // Widgets support a single text string and will be automatically split on newlines
-widget_text :: proc(c: ^Context, text: string, offset: [2]f32) {
+widget_text_at_offset :: proc(c: ^Context, text: string, offset: [2]f32) {
+	assert(!strings.contains(text, "\n"), "multiline text not supported yet")
+
 	c.widget_curr.text = text
 	c.widget_curr.text_pos = [2]f32{c.widget_curr.rect.x, c.widget_curr.rect.y} + offset
 	c.widget_curr.text_style = text_style_curr(c)
@@ -144,12 +199,7 @@ panel :: proc(c: ^Context, key: Widget_Key, r: Rect) {
 button :: proc(c: ^Context, key: Widget_Key, r: Rect, text: string) -> Widget_Interaction {
 	widget_begin(c, key, r, .Square, 2)
 	widget_flags(c, {.DrawBackground, .DrawBorder})
-
-	text_style := text_style_curr(c)
-	tw := text_width(c, text)
-	offset := [2]f32{(r.width - f32(tw)) * 0.5, (r.height - text_style.line_height) * 0.5}
-	widget_text(c, text, offset)
-
+	widget_text(c, text, .Center, .Center)
 	widget_end(c)
 	return c.widget_curr.interaction
 }
