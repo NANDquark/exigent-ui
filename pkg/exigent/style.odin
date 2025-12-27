@@ -1,5 +1,6 @@
 package exigent
 
+
 Style :: struct {
 	// TODO: we should swap to a registry based system that the user can extend
 	colors: map[Color_Type]Color,

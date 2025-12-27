@@ -1,5 +1,7 @@
 package exigent
 
+import "core:strings"
+
 Text_Style :: struct {
 	type:        Text_Style_Type,
 	font:        rawptr,
@@ -79,4 +81,33 @@ text_style_curr :: proc(c: ^Context) -> Text_Style {
 text_width :: proc(c: ^Context, text: string) -> f32 {
 	text_style := text_style_curr(c)
 	return reg.width_fn(text_style, text)
+}
+
+// Clips the text to ensure it fits within the Rect by removing characters and adding ellipses.
+// When the text cannot fit a single line vertically the entire text is removed.
+// When the text fits already it is just returned.
+text_clip :: proc(c: ^Context, text: string, r: Rect) -> string {
+	assert(!strings.contains(text, "\n"))
+
+	text := text
+	text_style := text_style_curr(c)
+
+	// TODO: multiline support
+	if c.widget_curr.rect.height < text_style.line_height {
+		return ""
+	}
+
+	if text != "" && c.widget_curr.rect.width < text_width(c, text) {
+		ellipses_width := text_width(c, "...")
+		for true {
+			if len(text) == 0 do break
+			truncated_width := text_width(c, text) + ellipses_width
+			if truncated_width < c.widget_curr.rect.width {
+				return strings.concatenate([]string{text, "..."}, c.temp_allocator)
+			}
+			text = text[:len(text) - 1]
+		}
+	}
+
+	return text
 }

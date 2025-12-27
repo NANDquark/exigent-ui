@@ -111,6 +111,7 @@ widget_text_aligned :: proc(
 	v_align: Text_Align_V,
 ) {
 	assert(!strings.contains(text, "\n"), "multiline text not supported yet")
+	text := text_clip(c, text, c.widget_curr.rect)
 
 	text_style := text_style_curr(c)
 	r := widget_get_rect(c)

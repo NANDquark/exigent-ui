@@ -1,5 +1,6 @@
 package exigent
 
+
 Rect :: struct {
 	x, y:          f32,
 	width, height: f32,
