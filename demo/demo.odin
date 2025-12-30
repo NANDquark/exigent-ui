@@ -6,7 +6,7 @@ import "core:strings"
 import rl "vendor:raylib"
 
 State :: struct {
-	input1: ui.Text_Buffer,
+	input1: ui.Text_Input,
 }
 
 state := State{}
@@ -41,7 +41,9 @@ main :: proc() {
 
 	// Initialize persistant widget state
 	input1_buf: [16]u8
-	state.input1 = ui.text_buffer_create(input1_buf[:])
+	state.input1 = ui.Text_Input {
+		text = ui.text_buffer_create(input1_buf[:]),
+	}
 
 	for !rl.WindowShouldClose() {
 		// Input - Check for released keys
@@ -99,7 +101,7 @@ main :: proc() {
 		input_label := ui.rect_cut_left(&line1, line1.width / 2)
 		input := line1
 		ui.label(ctx, input_label, "Input: ")
-		ui.text_input(ctx, input, &state.input1)
+		ui.text_input(ctx, input, &state.input1.text)
 
 		t2 := ui.rect_cut_top(&r, 100)
 		t2 = ui.rect_inset(t2, ui.Inset{0, 90, 0, 90})

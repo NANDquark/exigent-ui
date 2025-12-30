@@ -254,6 +254,10 @@ label :: proc(
 	widget_end(c)
 }
 
+Text_Input :: struct {
+	text: Text_Buffer,
+}
+
 text_input :: proc(
 	c: ^Context,
 	r: Rect,
