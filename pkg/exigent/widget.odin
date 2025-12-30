@@ -58,6 +58,8 @@ pop_id :: proc(c: ^Context) {
 Widget_Flags :: enum {
 	DrawBackground,
 	DrawBorder,
+	HasHover,
+	HasActive,
 }
 
 widget_begin :: proc(c: ^Context, r: Rect, caller: runtime.Source_Code_Location, sub_id: int = 0) {
@@ -203,17 +205,21 @@ widget_interaction :: proc(c: ^Context, w: ^Widget) {
 		w.interaction.down = input_is_mouse_down(c, .Left)
 		w.interaction.pressed = input_is_mouse_pressed(c, .Left)
 		w.interaction.clicked = input_is_mouse_clicked(c, .Left)
+
+		if w.interaction.clicked {
+			c.active_text_buffer = nil
+		}
 	}
 }
 
-root :: proc(c: ^Context, caller := #caller_location) {
+root :: proc(c: ^Context, caller := #caller_location, sub_id: int = 0) {
 	screen := Rect{0, 0, f32(c.screen_width), f32(c.screen_height)}
-	widget_begin(c, screen, caller)
+	widget_begin(c, screen, caller, sub_id)
 	widget_end(c)
 }
 
-panel :: proc(c: ^Context, r: Rect, caller := #caller_location) {
-	widget_begin(c, r, caller)
+panel :: proc(c: ^Context, r: Rect, caller := #caller_location, sub_id: int = 0) {
+	widget_begin(c, r, caller, sub_id)
 	widget_flags(c, {.DrawBackground})
 	widget_end(c)
 }
@@ -223,11 +229,12 @@ button :: proc(
 	r: Rect,
 	text: string,
 	caller := #caller_location,
+	sub_id: int = 0,
 ) -> Widget_Interaction {
-	widget_begin(c, r, caller)
+	widget_begin(c, r, caller, sub_id)
 	defer widget_end(c)
 
-	widget_flags(c, {.DrawBackground, .DrawBorder})
+	widget_flags(c, {.DrawBackground, .DrawBorder, .HasHover, .HasActive})
 	widget_text(c, text, .Center, .Center)
 
 	return c.widget_curr.interaction
@@ -240,15 +247,34 @@ label :: proc(
 	h_align: Text_Align_H = .Left,
 	v_align: Text_Align_V = .Top,
 	caller := #caller_location,
+	sub_id: int = 0,
 ) {
-	widget_begin(c, r, caller)
+	widget_begin(c, r, caller, sub_id)
 	widget_text(c, text, h_align, v_align)
 	widget_end(c)
 }
 
-text_input :: proc(c: ^Context, r: Rect, caller := #caller_location) -> Widget_Interaction {
-	widget_begin(c, r, caller)
+text_input :: proc(
+	c: ^Context,
+	r: Rect,
+	text_buf: ^Text_Buffer,
+	caller := #caller_location,
+	sub_id: int = 0,
+) -> Widget_Interaction {
+	style_push(c)
+	style_set_color(c, Color_Type_BACKGROUND, WHITE)
+	defer style_pop(c)
+
+	widget_begin(c, r, caller, sub_id)
 	defer widget_end(c)
+
+	widget_flags(c, {.DrawBackground, .DrawBorder})
+
+	widget_text(c, text_buffer_to_string(text_buf), [2]f32{5, 5})
+
+	if c.widget_curr.interaction.clicked {
+		c.active_text_buffer = text_buf
+	}
 
 	return c.widget_curr.interaction
 }

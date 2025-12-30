@@ -26,6 +26,9 @@ Color_Type_BACKGROUND :: Color_Type("background")
 Color_Type_BACKGROUND_HOVERED :: Color_Type("background_hovered")
 Color_Type_BACKGROUND_ACTIVE :: Color_Type("background_active") // ex. clicked
 Color_Type_BORDER :: Color_Type("border)")
+Color_Type_BORDER_HOVERED :: Color_Type("border_hovered")
+Color_Type_BORDER_ACTIVE :: Color_Type("border_active")
+Color_Type_INPUT :: Color_Type("input")
 
 style_default_init :: proc(style: ^Style, allocator := context.allocator) {
 	style.border_style = Border_Style {
@@ -37,16 +40,18 @@ style_default_init :: proc(style: ^Style, allocator := context.allocator) {
 	style.colors = make(map[Color_Type]Color, allocator)
 
 	style.colors[Color_Type_BACKGROUND] = Color{128, 128, 128}
-	style.colors[Color_Type_BACKGROUND_HOVERED] = color_blend(
-		style.colors[Color_Type_BACKGROUND],
-		WHITE,
-		0.3,
-	)
-	style.colors[Color_Type_BACKGROUND_ACTIVE] = color_blend(
-		style.colors[Color_Type_BACKGROUND],
-		BLACK,
-		0.3,
-	)
+	// style.colors[Color_Type_BACKGROUND_HOVERED] = color_blend(
+	// 	style.colors[Color_Type_BACKGROUND],
+	// 	WHITE,
+	// 	0.3,
+	// )
+	// style.colors[Color_Type_BACKGROUND_ACTIVE] = color_blend(
+	// 	style.colors[Color_Type_BACKGROUND],
+	// 	BLACK,
+	// 	0.3,
+	// )
+
+	// style.colors[Color_Type_INPUT] = color_blend(style.colors[Color_Type_BACKGROUND], WHITE, 0.5)
 }
 
 style_push :: proc(c: ^Context) {

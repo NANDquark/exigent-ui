@@ -8,6 +8,8 @@ Context :: struct {
 	screen_width, screen_height: int,
 	is_building:                 bool, // when between begin/end
 	num_widgets:                 int,
+	key_map:                     map[int]Special_Key,
+	key_max:                     int,
 	// persistent data
 	perm_allocator:              mem.Allocator,
 	input_prev, input_curr:      ^Input,
@@ -15,6 +17,7 @@ Context :: struct {
 	style_stack:                 [dynamic]Style,
 	text_style_stack:            [dynamic]Text_Style_Type,
 	hovered_widget_id:           Maybe(Widget_ID),
+	active_text_buffer:          ^Text_Buffer,
 	// temp data
 	temp_allocator:              mem.Allocator,
 	widget_root, widget_curr:    ^Widget,
@@ -23,15 +26,19 @@ Context :: struct {
 
 context_init :: proc(
 	c: ^Context,
-	key_min_index: int = 0,
-	key_max_index: int = 512,
+	key_map: map[int]Special_Key,
+	key_min: int = 0,
+	key_max: int = 512,
 	perm_allocator := context.allocator,
 	temp_allocator := context.temp_allocator,
 ) {
+	c.key_map = key_map
+	c.key_max = key_max
+
 	c.perm_allocator = perm_allocator
 	c.widget_stack.allocator = c.perm_allocator
-	c.input_prev = input_create(key_min_index, key_max_index, c.perm_allocator)
-	c.input_curr = input_create(key_min_index, key_max_index, c.perm_allocator)
+	c.input_prev = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
+	c.input_curr = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
 	c.style_stack.allocator = c.perm_allocator
 	style := Style{}
 	style_default_init(&style, perm_allocator) // TODO: allow caller override of default theme
@@ -59,6 +66,19 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	c.is_building = true
 
 	root(c) // create root widget all builder-code widgets are children of
+
+	if c.active_text_buffer != nil {
+		if input_is_key_released(c, Special_Key.Escape) {
+			text_buffer_clear(c.active_text_buffer)
+			c.active_text_buffer = nil
+		}
+		if input_is_key_released(c, Special_Key.Enter) {
+			c.active_text_buffer = nil
+		}
+		if input_is_key_released(c, Special_Key.Backspace) {
+			text_buffer_pop(c.active_text_buffer)
+		}
+	}
 }
 
 end :: proc(c: ^Context) {
@@ -112,9 +132,9 @@ cmd_iterator_create :: proc(
 				color = next.style.colors[Color_Type_BACKGROUND],
 				alpha = next.alpha,
 			}
-			if next.interaction.down {
+			if .HasActive in next.flags && next.interaction.down {
 				cmd.color = next.style.colors[Color_Type_BACKGROUND_ACTIVE]
-			} else if next.interaction.hovered {
+			} else if .HasHover in next.flags && next.interaction.hovered {
 				cmd.color = next.style.colors[Color_Type_BACKGROUND_HOVERED]
 			}
 			if .DrawBorder in next.flags {

@@ -1,6 +1,8 @@
 package exigent
 
 import ba "core:container/bit_array"
+import "core:fmt"
+import "core:unicode/utf8"
 
 Input :: struct {
 	mouse_pos:     [2]f32,
@@ -20,6 +22,18 @@ Mouse_Button :: enum {
 	Left,
 	Right,
 	Middle,
+}
+
+Special_Key :: enum (int) {
+	LCtrl,
+	LAlt,
+	LShift,
+	RCtrl,
+	RAlt,
+	RShift,
+	Escape,
+	Enter,
+	Backspace,
 }
 
 @(private)
@@ -62,14 +76,28 @@ input_swap :: proc(c: ^Context) {
 }
 
 input_key_down :: proc(c: ^Context, key: int) {
+	key := key
+	// convert special keys to known values
+	if spec_key, ok := c.key_map[key]; ok {
+		key = c.key_max + int(spec_key)
+	}
 	ba.set(&c.input_curr.key_down, key)
 	if !ba.get(&c.input_prev.key_down, key) {
 		ba.set(&c.input_curr.key_pressed, key)
 	}
 }
 
-input_is_key_down :: proc(c: ^Context, key: int) -> bool {
+input_is_key_down :: proc {
+	input_is_key_down_norm,
+	input_is_key_down_spec,
+}
+
+input_is_key_down_norm :: proc(c: ^Context, key: int) -> bool {
 	return ba.get(&c.input_curr.key_down, key)
+}
+
+input_is_key_down_spec :: proc(c: ^Context, key: Special_Key) -> bool {
+	return input_is_key_down_norm(c, c.key_max + int(key))
 }
 
 // Whether the key was pressed down this exact frame
@@ -78,14 +106,28 @@ input_is_key_pressed :: proc(c: ^Context, key: int) -> bool {
 }
 
 input_key_up :: proc(c: ^Context, key: int) {
+	key := key
+	// convert special keys to known values
+	if spec_key, ok := c.key_map[key]; ok {
+		key = c.key_max + int(spec_key)
+	}
 	ba.unset(&c.input_curr.key_down, key)
 	ba.unset(&c.input_curr.key_pressed, key)
 	ba.set(&c.input_curr.key_released, key)
 }
 
+input_is_key_released :: proc {
+	input_is_key_released_norm,
+	input_is_key_released_spec,
+}
+
 // Whether the key was released this exact frame
-input_is_key_released :: proc(c: ^Context, key: int) -> bool {
+input_is_key_released_norm :: proc(c: ^Context, key: int) -> bool {
 	return ba.get(&c.input_curr.key_released, key)
+}
+
+input_is_key_released_spec :: proc(c: ^Context, key: Special_Key) -> bool {
+	return input_is_key_released_norm(c, c.key_max + int(key))
 }
 
 input_mouse_pos :: proc(c: ^Context, pos: [2]f32) {
@@ -128,14 +170,40 @@ input_is_mouse_clicked :: proc(c: ^Context, btn: Mouse_Button) -> bool {
 }
 
 Key_Down_Iterator :: struct {
+	key_map:  map[int]Special_Key,
+	key_max:  int,
 	iterator: ba.Bit_Array_Iterator,
 }
 
 input_key_down_iterator :: proc(c: ^Context) -> Key_Down_Iterator {
-	return Key_Down_Iterator{iterator = ba.make_iterator(&c.input_curr.key_down)}
+	return Key_Down_Iterator {
+		iterator = ba.make_iterator(&c.input_curr.key_down),
+		key_map = c.key_map,
+		key_max = c.key_max,
+	}
 }
 
 // Returns false when done
 input_key_down_iterator_next :: proc(it: ^Key_Down_Iterator) -> (int, bool) {
-	return ba.iterate_by_set(&it.iterator)
+	key, ok := ba.iterate_by_set(&it.iterator)
+	if !ok do return key, false
+
+	if key > it.key_max {
+		target_spec_key := Special_Key(key - it.key_max)
+		// TODO: should use a reverse map
+		for norm_key, spec_key in it.key_map {
+			if spec_key == target_spec_key {
+				return norm_key, ok
+			}
+		}
+	}
+
+	return key, ok
+}
+
+input_char :: proc(c: ^Context, r: rune) {
+	if c.active_text_buffer == nil do return
+
+	bytes, len := utf8.encode_rune(r)
+	text_buffer_append(c.active_text_buffer, bytes[:len])
 }

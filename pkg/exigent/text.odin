@@ -1,6 +1,7 @@
 package exigent
 
 import "core:strings"
+import "core:unicode/utf8"
 
 Text_Style :: struct {
 	type:        Text_Style_Type,
@@ -110,4 +111,44 @@ text_clip :: proc(c: ^Context, text: string, r: Rect) -> string {
 	}
 
 	return text
+}
+
+// Statically backed text buffer
+Text_Buffer :: struct {
+	buf: []u8,
+	len: int,
+}
+
+text_buffer_create :: proc(buf: []u8) -> Text_Buffer {
+	return Text_Buffer{buf = buf, len = 0}
+}
+
+text_buffer_len :: proc(tbuf: ^Text_Buffer) -> int {
+	return tbuf.len
+}
+
+text_buffer_cap :: proc(tbuf: ^Text_Buffer) -> int {
+	return len(tbuf.buf)
+}
+
+text_buffer_append :: proc(tbuf: ^Text_Buffer, text: []u8) -> bool {
+	if tbuf.len + len(text) > text_buffer_cap(tbuf) do return false
+	buf_slot := tbuf.buf[tbuf.len:tbuf.len + len(text)]
+	copy(buf_slot, text)
+	tbuf.len += len(text)
+	return true
+}
+
+text_buffer_pop :: proc(tbuf: ^Text_Buffer) {
+	if tbuf.len <= 0 do return
+	_, nbytes := utf8.decode_last_rune(tbuf.buf[:tbuf.len])
+	tbuf.len -= nbytes
+}
+
+text_buffer_clear :: proc(tbuf: ^Text_Buffer) {
+	tbuf.len = 0
+}
+
+text_buffer_to_string :: proc(tbuf: ^Text_Buffer) -> string {
+	return string(tbuf.buf[:tbuf.len])
 }

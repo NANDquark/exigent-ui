@@ -5,14 +5,27 @@ import "core:fmt"
 import "core:strings"
 import rl "vendor:raylib"
 
+State :: struct {
+	input1: ui.Text_Buffer,
+}
+
+state := State{}
+
 main :: proc() {
 	rl.InitWindow(800, 600, "Exigent UI Demo")
 	rl.SetTargetFPS(60)
+	rl.SetExitKey(.KEY_NULL)
 	default_text_style_type := ui.Text_Style_Type("default")
 	default_font: rl.Font = rl.GetFontDefault()
 
+	key_map := map[int]ui.Special_Key{}
+	key_map[int(rl.KeyboardKey.BACKSPACE)] = .Backspace
+	key_map[int(rl.KeyboardKey.ENTER)] = .Enter
+	key_map[int(rl.KeyboardKey.ESCAPE)] = .Escape
+
+	// Initialize UI related context and defaults
 	ctx := &ui.Context{}
-	ui.context_init(ctx)
+	ui.context_init(ctx, key_map)
 	ui.text_style_init(
 		default_text_style_type,
 		ui.Text_Style {
@@ -26,26 +39,35 @@ main :: proc() {
 		measure_width,
 	)
 
+	// Initialize persistant widget state
+	input1_buf: [16]u8
+	state.input1 = ui.text_buffer_create(input1_buf[:])
+
 	for !rl.WindowShouldClose() {
 		// Input - Check for released keys
 		it := ui.input_key_down_iterator(ctx)
 		for true {
 			key, ok := ui.input_key_down_iterator_next(&it)
-			if !ok {
-				break
-			}
+			if !ok do break
 			if rl.IsKeyReleased(rl.KeyboardKey(key)) {
 				ui.input_key_up(ctx, key)
 			}
 		}
+
 		// Input - Get all down keys
 		for true {
 			key := int(rl.GetKeyPressed())
-			if key == 0 {
-				break
-			}
+			if key == 0 do break
 			ui.input_key_down(ctx, key)
 		}
+
+		// Input - text
+		for true {
+			r := rl.GetCharPressed()
+			if r == 0 do break
+			ui.input_char(ctx, r)
+		}
+
 		// Input - Mouse
 		ui.input_mouse_pos(ctx, rl.GetMousePosition())
 		// TODO: This could be optimized
@@ -72,9 +94,12 @@ main :: proc() {
 		ui.begin(ctx, 800, 600)
 		r := ui.Rect{0, 0, 800, 600}
 
-		t1 := ui.rect_cut_top(&r, 100)
-		t1 = ui.rect_inset(t1, ui.Inset{0, 90, 0, 90})
-		ui.label(ctx, t1, "Label: ")
+		line1 := ui.rect_cut_top(&r, 100)
+		line1 = ui.rect_inset(line1, ui.Inset{20, 90, 20, 90})
+		input_label := ui.rect_cut_left(&line1, line1.width / 2)
+		input := line1
+		ui.label(ctx, input_label, "Input: ")
+		ui.text_input(ctx, input, &state.input1)
 
 		t2 := ui.rect_cut_top(&r, 100)
 		t2 = ui.rect_inset(t2, ui.Inset{0, 90, 0, 90})
