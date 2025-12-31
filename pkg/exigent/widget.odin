@@ -223,7 +223,7 @@ Widget_Type :: distinct i32
 Widget_Type_NONE := widget_register(Widget_Style{})
 
 @(private = "file")
-_next_widget_type := 0
+_next_widget_type := 1
 
 widget_register :: proc "contextless" (style: Widget_Style) -> Widget_Type {
 	wt := Widget_Type(_next_widget_type)
@@ -278,7 +278,7 @@ button :: proc(
 	return c.widget_curr.interaction
 }
 
-Widget_Type_LABEL := widget_register(Widget_Style{base = Style{text_color = Color{0, 0, 0}}})
+Widget_Type_LABEL := widget_register(Widget_Style{})
 label :: proc(
 	c: ^Context,
 	r: Rect,
@@ -301,7 +301,6 @@ Widget_Type_TEXT_INPUT := widget_register(
 	Widget_Style {
 		base = Style {
 			background = Color{225, 225, 225},
-			text_color = Color{0, 0, 0},
 			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0}},
 		},
 	},

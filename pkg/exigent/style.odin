@@ -10,7 +10,6 @@ Widget_Style :: struct {
 
 Style :: struct {
 	background: Color,
-	text_color: Color,
 	border:     Border_Style,
 }
 

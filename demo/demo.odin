@@ -34,7 +34,7 @@ main :: proc() {
 			spacing = 2,
 			line_height = 30,
 			font = &default_font,
-			color = ui.BLACK,
+			color = ui.Color{},
 		},
 		measure_width,
 	)
