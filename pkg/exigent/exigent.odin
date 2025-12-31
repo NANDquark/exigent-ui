@@ -14,7 +14,9 @@ Context :: struct {
 	perm_allocator:              mem.Allocator,
 	input_prev, input_curr:      ^Input,
 	widget_stack:                [dynamic]^Widget,
-	style_stack:                 [dynamic]Style,
+	// style_stack:                 [dynamic]Style1,
+	style_default:               map[Widget_Type]Widget_Style,
+	style_stack:                 [dynamic]Widget_Type_Style,
 	text_style_stack:            [dynamic]Text_Style_Type,
 	hovered_widget_id:           Maybe(Widget_ID),
 	active_text_buffer:          ^Text_Buffer,
@@ -40,11 +42,10 @@ context_init :: proc(
 	c.input_prev = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
 	c.input_curr = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
 	c.style_stack.allocator = c.perm_allocator
-	style := Style{}
-	style_default_init(&style, perm_allocator) // TODO: allow caller override of default theme
-	append(&c.style_stack, style)
+	c.style_default = DEFAULT_STYLES
 
 	c.temp_allocator = temp_allocator
+	c.style_stack.allocator = c.temp_allocator
 	c.text_style_stack.allocator = c.temp_allocator
 	c.id_stack.allocator = c.temp_allocator
 }
@@ -83,7 +84,7 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 
 end :: proc(c: ^Context) {
 	assert(len(c.widget_stack) == 0, "every widget_begin must have a widge_end")
-	assert(len(c.style_stack) == 1, "every style_push must have a style_pop")
+	assert(len(c.style_stack) == 0, "every style_push must have a style_pop")
 	assert(len(c.text_style_stack) == 0, "every text_style_push must have a text_style_pop")
 
 	c.is_building = false
@@ -126,20 +127,24 @@ cmd_iterator_create :: proc(
 		queue.push_back_elems(&widgets, ..next.children[:])
 
 		if .DrawBackground in next.flags {
-			assert(Color_Type_BACKGROUND in next.style.colors)
 			cmd := Command_Rect {
 				rect  = next.rect,
-				color = next.style.colors[Color_Type_BACKGROUND],
+				color = next.style.base.background,
 				alpha = next.alpha,
 			}
 			if .HasActive in next.flags && next.interaction.down {
-				cmd.color = next.style.colors[Color_Type_BACKGROUND_ACTIVE]
+				cmd.color = next.style.active.background
 			} else if .HasHover in next.flags && next.interaction.hovered {
-				cmd.color = next.style.colors[Color_Type_BACKGROUND_HOVERED]
+				cmd.color = next.style.hover.background
 			}
+			// Consider just making .DrawBorder a separate non-filled Command_Rect instance
 			if .DrawBorder in next.flags {
-				cmd.border_type = next.style.border_style.type
-				cmd.border_thickness = next.style.border_style.thickness
+				cmd.border = next.style.base.border
+				if .HasActive in next.flags && next.style.active.border.type != .None {
+					cmd.border = next.style.active.border
+				} else if .HasHover in next.flags && next.style.hover.border.type != .None {
+					cmd.border = next.style.hover.border
+				}
 			}
 			append(&ci.queued, cmd)
 		}
@@ -180,12 +185,10 @@ Command :: union {
 Command_Done :: struct {}
 
 Command_Rect :: struct {
-	rect:             Rect,
-	color:            Color,
-	alpha:            u8,
-	border_type:      Border_Type,
-	border_thickness: int,
-	border_color:     Color,
+	rect:   Rect,
+	color:  Color,
+	alpha:  u8,
+	border: Border_Style,
 }
 
 Command_Text :: struct {

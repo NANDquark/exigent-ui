@@ -134,7 +134,7 @@ main :: proc() {
 				break draw_ui
 			case ui.Command_Rect:
 				rl_color := rl.Color{c.color.r, c.color.g, c.color.b, c.alpha}
-				switch c.border_type {
+				switch c.border.type {
 				case .None:
 					rl.DrawRectangleV(
 						rl.Vector2{c.rect.x, c.rect.y},
@@ -149,8 +149,8 @@ main :: proc() {
 					)
 					rl.DrawRectangleLinesEx(
 						rl.Rectangle{c.rect.x, c.rect.y, c.rect.width, c.rect.height},
-						f32(c.border_thickness),
-						rl.Color{c.border_color.r, c.border_color.g, c.border_color.b, c.alpha},
+						f32(c.border.thickness),
+						rl.Color{c.border.color.r, c.border.color.g, c.border.color.b, c.alpha},
 					)
 				}
 			case ui.Command_Text:

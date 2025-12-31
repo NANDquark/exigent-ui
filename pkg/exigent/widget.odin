@@ -1,6 +1,5 @@
 package exigent
 
-import "base:intrinsics"
 import "base:runtime"
 import "core:hash"
 import "core:mem"
@@ -8,10 +7,11 @@ import "core:strings"
 
 Widget :: struct {
 	id:          Widget_ID,
+	type:        Widget_Type,
 	parent:      ^Widget,
 	children:    [dynamic]^Widget,
 	rect:        Rect,
-	style:       Style,
+	style:       Widget_Style,
 	text:        string,
 	text_pos:    [2]f32,
 	text_style:  Text_Style,
@@ -62,14 +62,21 @@ Widget_Flags :: enum {
 	HasActive,
 }
 
-widget_begin :: proc(c: ^Context, r: Rect, caller: runtime.Source_Code_Location, sub_id: int = 0) {
+widget_begin :: proc(
+	c: ^Context,
+	type: Widget_Type,
+	r: Rect,
+	caller: runtime.Source_Code_Location,
+	sub_id: int = 0,
+) {
 	c.num_widgets += 1
 
 	w := new(Widget, c.temp_allocator)
 	w.id = create_id(c, caller, sub_id)
+	w.type = type
 	w.alpha = 255
 	w.rect = r
-	w.style = style_flat_copy(c)
+	w.style = style_get(c, type)
 
 	if c.widget_curr != nil {
 		parent := c.widget_curr
@@ -212,18 +219,49 @@ widget_interaction :: proc(c: ^Context, w: ^Widget) {
 	}
 }
 
+Widget_Type :: distinct i32
+Widget_Type_NONE := widget_register(Widget_Style{})
+
+@(private = "file")
+_next_widget_type := 0
+
+widget_register :: proc "contextless" (style: Widget_Style) -> Widget_Type {
+	wt := Widget_Type(_next_widget_type)
+	_next_widget_type += 1
+	style_default_register(wt, style)
+	return wt
+}
+
+Widget_Type_ROOT := widget_register(Widget_Style{})
 root :: proc(c: ^Context, caller := #caller_location, sub_id: int = 0) {
 	screen := Rect{0, 0, f32(c.screen_width), f32(c.screen_height)}
-	widget_begin(c, screen, caller, sub_id)
+	widget_begin(c, Widget_Type_ROOT, screen, caller, sub_id)
 	widget_end(c)
 }
 
+Widget_Type_PANEL := widget_register(Widget_Style{base = Style{background = Color{128, 128, 128}}})
 panel :: proc(c: ^Context, r: Rect, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, r, caller, sub_id)
+	widget_begin(c, Widget_Type_PANEL, r, caller, sub_id)
 	widget_flags(c, {.DrawBackground})
 	widget_end(c)
 }
 
+Widget_Type_BUTTON := widget_register(
+	Widget_Style {
+		base = Style {
+			background = Color{100, 100, 100},
+			border = Border_Style{type = .Square, thickness = 2},
+		},
+		hover = Style {
+			background = Color{150, 150, 150},
+			border = Border_Style{type = .Square, thickness = 2},
+		},
+		active = Style {
+			background = Color{50, 50, 50},
+			border = Border_Style{type = .Square, thickness = 2},
+		},
+	},
+)
 button :: proc(
 	c: ^Context,
 	r: Rect,
@@ -231,7 +269,7 @@ button :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
-	widget_begin(c, r, caller, sub_id)
+	widget_begin(c, Widget_Type_BUTTON, r, caller, sub_id)
 	defer widget_end(c)
 
 	widget_flags(c, {.DrawBackground, .DrawBorder, .HasHover, .HasActive})
@@ -240,6 +278,7 @@ button :: proc(
 	return c.widget_curr.interaction
 }
 
+Widget_Type_LABEL := widget_register(Widget_Style{base = Style{text_color = Color{0, 0, 0}}})
 label :: proc(
 	c: ^Context,
 	r: Rect,
@@ -249,7 +288,7 @@ label :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) {
-	widget_begin(c, r, caller, sub_id)
+	widget_begin(c, Widget_Type_LABEL, r, caller, sub_id)
 	widget_text(c, text, h_align, v_align)
 	widget_end(c)
 }
@@ -258,6 +297,15 @@ Text_Input :: struct {
 	text: Text_Buffer,
 }
 
+Widget_Type_TEXT_INPUT := widget_register(
+	Widget_Style {
+		base = Style {
+			background = Color{225, 225, 225},
+			text_color = Color{0, 0, 0},
+			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0}},
+		},
+	},
+)
 text_input :: proc(
 	c: ^Context,
 	r: Rect,
@@ -265,15 +313,10 @@ text_input :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
-	style_push(c)
-	style_set_color(c, Color_Type_BACKGROUND, WHITE)
-	defer style_pop(c)
-
-	widget_begin(c, r, caller, sub_id)
+	widget_begin(c, Widget_Type_TEXT_INPUT, r, caller, sub_id)
 	defer widget_end(c)
 
 	widget_flags(c, {.DrawBackground, .DrawBorder})
-
 	widget_text(c, text_buffer_to_string(text_buf), [2]f32{5, 5})
 
 	if c.widget_curr.interaction.clicked {
