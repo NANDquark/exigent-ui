@@ -13,16 +13,15 @@ Context :: struct {
 	// persistent data
 	perm_allocator:              mem.Allocator,
 	input_prev, input_curr:      ^Input,
-	widget_stack:                [dynamic]^Widget,
-	// style_stack:                 [dynamic]Style1,
 	style_default:               map[Widget_Type]Widget_Style,
-	style_stack:                 [dynamic]Widget_Type_Style,
-	text_style_stack:            [dynamic]Text_Style_Type,
 	hovered_widget_id:           Maybe(Widget_ID),
 	active_text_buffer:          ^Text_Buffer,
 	// temp data
 	temp_allocator:              mem.Allocator,
 	widget_root, widget_curr:    ^Widget,
+	widget_stack:                [dynamic]^Widget,
+	style_stack:                 [dynamic]Widget_Type_Style,
+	text_style_stack:            [dynamic]Text_Style_Type,
 	id_stack:                    [dynamic]Widget_ID,
 }
 
@@ -38,16 +37,11 @@ context_init :: proc(
 	c.key_max = key_max
 
 	c.perm_allocator = perm_allocator
-	c.widget_stack.allocator = c.perm_allocator
 	c.input_prev = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
 	c.input_curr = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
-	c.style_stack.allocator = c.perm_allocator
 	c.style_default = DEFAULT_STYLES
 
 	c.temp_allocator = temp_allocator
-	c.style_stack.allocator = c.temp_allocator
-	c.text_style_stack.allocator = c.temp_allocator
-	c.id_stack.allocator = c.temp_allocator
 }
 
 context_destroy :: proc(c: ^Context) {
@@ -62,9 +56,12 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	c.screen_width = screen_width
 	c.screen_height = screen_height
 	c.widget_root = nil
-	c.widget_curr = nil
 	c.num_widgets = 0
 	c.is_building = true
+	c.widget_stack = make([dynamic]^Widget, c.temp_allocator)
+	c.style_stack = make([dynamic]Widget_Type_Style, c.temp_allocator)
+	c.text_style_stack = make([dynamic]Text_Style_Type, c.temp_allocator)
+	c.id_stack = make([dynamic]Widget_ID, c.temp_allocator)
 
 	root(c) // create root widget all builder-code widgets are children of
 
@@ -83,17 +80,16 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 }
 
 end :: proc(c: ^Context) {
-	assert(len(c.widget_stack) == 0, "every widget_begin must have a widge_end")
+	assert(len(c.widget_stack) == 0, "every widget_begin must have a widget_end")
 	assert(len(c.style_stack) == 0, "every style_push must have a style_pop")
 	assert(len(c.text_style_stack) == 0, "every text_style_push must have a text_style_pop")
+	assert(len(c.id_stack) == 0, "every widget id must be popped")
 
+	c.widget_curr = nil
 	c.is_building = false
 	input_swap(c)
 	hovered, found := widget_pick(c.widget_root, c.input_curr.mouse_pos)
 	c.hovered_widget_id = hovered.id if found else nil
-	clear(&c.widget_stack)
-	clear(&c.text_style_stack)
-	clear(&c.id_stack)
 }
 
 Command_Iterator :: struct {
@@ -196,3 +192,4 @@ Command_Text :: struct {
 	pos:   [2]f32,
 	style: Text_Style,
 }
+

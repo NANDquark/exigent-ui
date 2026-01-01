@@ -1,6 +1,7 @@
 package exigent
 
 import "base:runtime"
+import "core:fmt"
 import "core:hash"
 import "core:mem"
 import "core:strings"
@@ -23,7 +24,7 @@ Widget :: struct {
 Widget_ID :: distinct u32
 
 @(private = "file")
-Raw_Widget_ID :: struct {
+Raw_Widget_ID :: struct #packed {
 	stack_id: u32,
 	fp:       u32, // hashed filepath
 	line:     i32,
@@ -47,7 +48,9 @@ create_id :: proc(
 	}
 	bytes := mem.any_to_bytes(raw)
 	id := Widget_ID(hash.fnv32a(bytes))
+	// BUG: when new ID is appended here in the second frame it somehow overwrites the first widget child id
 	append(&c.id_stack, id)
+	fmt.printfln("new id: %d", id)
 	return id
 }
 
@@ -69,14 +72,26 @@ widget_begin :: proc(
 	caller: runtime.Source_Code_Location,
 	sub_id: int = 0,
 ) {
+	fmt.println("widget_begin_start: ")
+	if c.widget_root != nil {
+		if len(c.widget_root.children) > 0 {
+			for child in c.widget_root.children {
+				fmt.printf("id=%d", child.id)
+			}
+			fmt.println()
+		}
+	}
+
 	c.num_widgets += 1
 
 	w := new(Widget, c.temp_allocator)
-	w.id = create_id(c, caller, sub_id)
+	id := create_id(c, caller, sub_id)
+	w.id = id
 	w.type = type
 	w.alpha = 255
 	w.rect = r
 	w.style = style_get(c, type)
+	w.children.allocator = c.temp_allocator
 
 	if c.widget_curr != nil {
 		parent := c.widget_curr
@@ -93,6 +108,16 @@ widget_begin :: proc(
 	}
 
 	widget_interaction(c, c.widget_curr)
+
+	fmt.println("widget_begin_end: ")
+	if c.widget_root != nil {
+		if len(c.widget_root.children) > 0 {
+			for child in c.widget_root.children {
+				fmt.printf("id=%d", child.id)
+			}
+			fmt.println()
+		}
+	}
 }
 
 widget_end :: proc(c: ^Context) {
@@ -188,6 +213,8 @@ widget_pick :: proc(w: ^Widget, mouse_pos: [2]f32) -> (hovered: ^Widget, found: 
 	}
 
 	#reverse for child in w.children {
+		// c := child
+		// fmt.printfln("%d", c.id)
 		descendent, found := widget_pick(child, mouse_pos)
 		if found {
 			return descendent, true
@@ -324,3 +351,4 @@ text_input :: proc(
 
 	return c.widget_curr.interaction
 }
+
