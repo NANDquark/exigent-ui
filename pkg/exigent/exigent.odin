@@ -18,6 +18,9 @@ Context :: struct {
 	active_text_buffer:          ^Text_Buffer,
 	// temp data
 	temp_allocator:              mem.Allocator,
+	widget_stack:                [dynamic]^Widget,
+	style_stack:                 [dynamic]Widget_Type_Style,
+	text_style_stack:            [dynamic]Text_Style_Type,
 	widget_root, widget_curr:    ^Widget,
 	widget_stack:                [dynamic]^Widget,
 	style_stack:                 [dynamic]Widget_Type_Style,
