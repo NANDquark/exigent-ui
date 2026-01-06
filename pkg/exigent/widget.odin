@@ -2,6 +2,7 @@ package exigent
 
 import "base:runtime"
 import "core:hash"
+import "core:math"
 import "core:mem"
 
 Widget :: struct {
@@ -11,11 +12,7 @@ Widget :: struct {
 	children:    [dynamic]^Widget,
 	rect, clip:  Rect,
 	style:       Widget_Style,
-	// text:        string,
-	// text_pos:    [2]f32,
-	// text_style:  Text_Style,
 	alpha:       u8,
-	// flags:       bit_set[Widget_Flags],
 	interaction: Widget_Interaction,
 }
 
@@ -26,13 +23,18 @@ widget_begin :: proc(
 	caller: runtime.Source_Code_Location,
 	sub_id: int = 0,
 ) {
+	rect := r
+	if scrollbox, exists := scrollbox_curr(c); exists {
+		rect.y += scrollbox_total_y_offset(c)
+	}
+
 	w := new(Widget, c.temp_allocator)
 	id := widget_id_push(c, caller, sub_id)
 	w.id = id
 	w.type = type
 	w.alpha = 255
-	w.rect = r
-	w.clip = r
+	w.rect = rect
+	w.clip = rect
 	w.style = style_get(c, type)
 	w.children.allocator = c.temp_allocator
 
@@ -254,23 +256,106 @@ text_input :: proc(
 }
 
 Scrollbox :: struct {
-	y_offset: int,
+	y_offset: f32, // persists across frames
+	w:        ^Widget,
+	// when rect_take procs are used this contains the result, and negative height
+	// means the content must clip and scroll
+	// TODO: Not sure I like this solution, but it avoids caching content size
+	// across frames size but it is pretty "magic" and requires careful usage so
+	// not robust to using it wrong
+	layout:   ^Rect,
+	// _content_height: f32, // accumulated per frame
 }
 
-Widget_Type_SCROLLBOX := widget_register(Widget_Style{})
-scrollbox :: proc(
+Widget_Type_SCROLLBOX := widget_register(
+	Widget_Style {
+		base = Style {
+			background = Color{150, 150, 150},
+			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0}},
+		},
+	},
+)
+// Modifies the r Rect so it is only the content section
+scrollbox_begin :: proc(
 	c: ^Context,
-	r: Rect,
+	r: ^Rect,
 	data: ^Scrollbox,
 	caller := #caller_location,
 	sub_id: int = 0,
-) -> Widget_Interaction {
-	widget_begin(c, Widget_Type_SCROLLBOX, r, caller, sub_id)
-	defer widget_end(c)
+) {
+	// this explicitly takes a copy of the r Rect since rect_take operations
+	// will modify the original Rect as we add content to it
+	widget_begin(c, Widget_Type_SCROLLBOX, r^, caller, sub_id)
 
-	content := r
-	scroll_container := rect_cut_right(&content, 20)
+	data.w = c.widget_curr
+	data.layout = r
+	draw_background(c)
 
-	return c.widget_curr.interaction
+	append(&c.scrollbox_stack, data)
+}
+
+scrollbox_end :: proc(c: ^Context) {
+	scrollbox := pop(&c.scrollbox_stack)
+
+	// TODO: move the scroll bar color and alpha to the Style struct
+
+	// only show scrollbox when content extends beyond scrollbox height
+	if scrollbox.layout.h < 0 {
+		rect := scrollbox.w.rect
+		scrollbar := rect_cut_right(&rect, 20)
+		style := style_curr(c)
+
+		// draw scrollbar track
+		scrollbar_track := scrollbar
+		draw_rect(
+			c,
+			scrollbar_track,
+			style.background,
+			185,
+			Border_Style {
+				type = .Square,
+				thickness = 1,
+				color = color_blend(style.border.color, Color{255, 255, 255}, 0.3),
+			},
+		)
+
+		// draw scrollbar "thumb"
+		scrollbox_height := scrollbox.w.rect.h
+		content_height := scrollbox_height + (-scrollbox.layout.h)
+		thumb_height := scrollbox_height * scrollbox_height / content_height
+		thumb_height = math.max(thumb_height, 20) // min thumb size
+		pct := -scrollbox.y_offset / (content_height - scrollbox_height)
+		pct = math.clamp(pct, 0, 1)
+		thumb := Rect {
+			x = scrollbar.x,
+			y = scrollbar.y + (pct * (scrollbox_height - thumb_height)),
+			h = thumb_height,
+			w = scrollbar.w,
+		}
+		thumb = rect_inset(thumb, 2)
+		draw_rect(c, thumb, color_blend(style.background, Color{}, 0.3), 185)
+	}
+
+	// cleanup
+	scrollbox.w = nil
+	// scrollbox._content_height = 0
+	widget_end(c)
+}
+
+@(private)
+scrollbox_curr :: proc(c: ^Context) -> (^Scrollbox, bool) {
+	if len(c.scrollbox_stack) > 0 {
+		return c.scrollbox_stack[len(c.scrollbox_stack) - 1], true
+	}
+	return nil, false
+}
+
+@(private)
+scrollbox_total_y_offset :: proc(c: ^Context) -> f32 {
+	total: f32 = 0
+	for sb in c.scrollbox_stack {
+		total += sb.y_offset
+	}
+	return total
 }
 

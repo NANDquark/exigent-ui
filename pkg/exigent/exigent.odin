@@ -17,6 +17,7 @@ Context :: struct {
 	style_default:               map[Widget_Type]Widget_Style,
 	hovered_widget_id:           Maybe(Widget_ID), // persisted across frames
 	draw_cmds:                   [dynamic]Command,
+	scrollbox_stack:             [dynamic]^Scrollbox,
 	// temp data
 	temp_allocator:              mem.Allocator,
 	widget_root, widget_curr:    ^Widget,
@@ -42,6 +43,7 @@ context_init :: proc(
 	c.temp_allocator = temp_allocator
 	c.perm_allocator = perm_allocator
 	c.draw_cmds.allocator = c.perm_allocator
+	c.scrollbox_stack.allocator = c.perm_allocator
 	c.input_prev = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
 	c.input_curr = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
 	c.style_default = DEFAULT_STYLES
@@ -59,7 +61,8 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	c.widget_root = nil
 	c.active_widget_id = nil
 	c.is_building = true
-	clear(&c.draw_cmds) // memory is persisted across frames but not data
+	clear(&c.draw_cmds)
+	clear(&c.scrollbox_stack)
 	c.widget_stack = make([dynamic]^Widget, c.temp_allocator)
 	c.style_stack = make([dynamic]Widget_Type_Style, c.temp_allocator)
 	c.text_style_stack = make([dynamic]Text_Style_Type, c.temp_allocator)
@@ -86,6 +89,7 @@ end :: proc(c: ^Context) {
 	assert(len(c.style_stack) == 0, "every style_push must have a style_pop")
 	assert(len(c.text_style_stack) == 0, "every text_style_push must have a text_style_pop")
 	assert(len(c.id_stack) == 0, "every widget id must be popped")
+	assert(len(c.scrollbox_stack) == 0, "every scrollbox must be ended")
 
 	c.widget_curr = nil
 	c.is_building = false

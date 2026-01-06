@@ -418,6 +418,106 @@ test_rect_align :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_rect_take_side :: proc(t: ^testing.T) {
+	TestCase :: struct {
+		desc:              string,
+		initial:           Rect,
+		pixels:            f32,
+		take_func:         proc(_: ^Rect, _: f32) -> Rect,
+		expected_returned: Rect,
+		expected_modified: Rect,
+	}
+
+	cases := []TestCase {
+		{
+			desc = "take left 10 pixels",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 10,
+			take_func = rect_take_left,
+			expected_returned = Rect{0, 0, 10, 100},
+			expected_modified = Rect{10, 0, 90, 100},
+		},
+		{
+			desc = "take left more than width",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 120,
+			take_func = rect_take_left,
+			expected_returned = Rect{0, 0, 120, 100},
+			expected_modified = Rect{120, 0, -20, 100},
+		},
+		{
+			desc = "take right 20 pixels",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 20,
+			take_func = rect_take_right,
+			expected_returned = Rect{80, 0, 20, 100},
+			expected_modified = Rect{0, 0, 80, 100},
+		},
+		{
+			desc = "take right more than width",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 120,
+			take_func = rect_take_right,
+			expected_returned = Rect{-20, 0, 120, 100},
+			expected_modified = Rect{0, 0, -20, 100},
+		},
+		{
+			desc = "take top 30 pixels",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 30,
+			take_func = rect_take_top,
+			expected_returned = Rect{0, 0, 100, 30},
+			expected_modified = Rect{0, 30, 100, 70},
+		},
+		{
+			desc = "take top more than height",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 120,
+			take_func = rect_take_top,
+			expected_returned = Rect{0, 0, 100, 120},
+			expected_modified = Rect{0, 120, 100, -20},
+		},
+		{
+			desc = "take bottom 40 pixels",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 40,
+			take_func = rect_take_bot,
+			expected_returned = Rect{0, 60, 100, 40},
+			expected_modified = Rect{0, 0, 100, 60},
+		},
+		{
+			desc = "take bottom more than height",
+			initial = Rect{0, 0, 100, 100},
+			pixels = 120,
+			take_func = rect_take_bot,
+			expected_returned = Rect{0, -20, 100, 120},
+			expected_modified = Rect{0, 0, 100, -20},
+		},
+	}
+
+	for c in cases {
+		r := c.initial
+		returned := c.take_func(&r, c.pixels)
+		testing.expectf(
+			t,
+			returned == c.expected_returned,
+			"\n%s\nexpected returned: %v,\nactual: %v",
+			c.desc,
+			c.expected_returned,
+			returned,
+		)
+		testing.expectf(
+			t,
+			r == c.expected_modified,
+			"\n%s\nexpected modified: %v,\nactual: %v",
+			c.desc,
+			c.expected_modified,
+			r,
+		)
+	}
+}
+
+@(test)
 test_rect_intersect :: proc(t: ^testing.T) {
 	TestCaseIntersect :: struct {
 		desc:     string,
@@ -478,6 +578,68 @@ test_rect_intersect :: proc(t: ^testing.T) {
 
 	for c in cases {
 		result := rect_intersect(c.r1, c.r2)
+		testing.expectf(
+			t,
+			result == c.expected,
+			"\n%s\nexpected: %v,\nactual: %v\nr1: %v, r2: %v",
+			c.desc,
+			c.expected,
+			result,
+			c.r1,
+			c.r2,
+		)
+	}
+}
+
+@(test)
+test_rect_enclosing :: proc(t: ^testing.T) {
+	TestCaseEnclosing :: struct {
+		desc:     string,
+		r1, r2:   Rect,
+		expected: Rect,
+	}
+
+	cases := []TestCaseEnclosing {
+		{
+			desc = "identical rectangles",
+			r1 = Rect{0, 0, 10, 10},
+			r2 = Rect{0, 0, 10, 10},
+			expected = Rect{0, 0, 10, 10},
+		},
+		{
+			desc = "one inside another",
+			r1 = Rect{0, 0, 10, 10},
+			r2 = Rect{2, 2, 2, 2},
+			expected = Rect{0, 0, 10, 10},
+		},
+		{
+			desc = "separate rectangles",
+			r1 = Rect{0, 0, 10, 10},
+			r2 = Rect{20, 20, 10, 10},
+			expected = Rect{0, 0, 30, 30},
+		},
+		{
+			desc = "partial overlap",
+			r1 = Rect{0, 0, 10, 10},
+			r2 = Rect{5, 5, 10, 10},
+			expected = Rect{0, 0, 15, 15},
+		},
+		{
+			desc = "negative coordinates",
+			r1 = Rect{-10, -10, 5, 5},
+			r2 = Rect{5, 5, 5, 5},
+			expected = Rect{-10, -10, 20, 20},
+		},
+		{
+			desc = "zero-sized rectangle at origin",
+			r1 = Rect{0, 0, 10, 10},
+			r2 = Rect{0, 0, 0, 0},
+			expected = Rect{0, 0, 10, 10},
+		},
+	}
+
+	for c in cases {
+		result := rect_enclosing(c.r1, c.r2)
 		testing.expectf(
 			t,
 			result == c.expected,

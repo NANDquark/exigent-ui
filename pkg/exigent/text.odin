@@ -94,16 +94,16 @@ text_clip :: proc(c: ^Context, text: string, r: Rect) -> string {
 	text_style := text_style_curr(c)
 
 	// TODO: multiline support
-	if c.widget_curr.rect.height < text_style.line_height {
+	if c.widget_curr.rect.h < text_style.line_height {
 		return ""
 	}
 
-	if text != "" && c.widget_curr.rect.width < text_width(c, text) {
+	if text != "" && c.widget_curr.rect.w < text_width(c, text) {
 		ellipses_width := text_width(c, "...")
 		for true {
 			if len(text) == 0 do break
 			truncated_width := text_width(c, text) + ellipses_width
-			if truncated_width < c.widget_curr.rect.width {
+			if truncated_width < c.widget_curr.rect.w {
 				return strings.concatenate([]string{text, "..."}, c.temp_allocator)
 			}
 			text = text[:len(text) - 1]
@@ -152,3 +152,4 @@ text_buffer_clear :: proc(tbuf: ^Text_Buffer) {
 text_buffer_to_string :: proc(tbuf: ^Text_Buffer) -> string {
 	return string(tbuf.buf[:tbuf.len])
 }
+
