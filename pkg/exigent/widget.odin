@@ -168,7 +168,7 @@ widget_interaction :: proc(c: ^Context, w: ^Widget) {
 }
 
 Widget_Type :: distinct i32
-Widget_Type_NONE := widget_register(Widget_Style{})
+Widget_Type_NONE := Widget_Type(0)
 
 @(private = "file")
 _next_widget_type := 1

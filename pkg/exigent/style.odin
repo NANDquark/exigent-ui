@@ -54,6 +54,7 @@ color_blend :: proc(c1, c2: Color, t: f32) -> (cb: Color) {
 }
 
 style_push :: proc(c: ^Context, type: Widget_Type, style: Widget_Style) {
+	assert(type != Widget_Type_NONE, "invalid widget type (0)")
 	append(&c.style_stack, Widget_Type_Style{type = type, style = style})
 }
 
@@ -63,6 +64,7 @@ style_pop :: proc(c: ^Context) {
 }
 
 style_get :: proc(c: ^Context, type: Widget_Type) -> Widget_Style {
+	assert(type != Widget_Type_NONE, "invalid widget type (0)")
 	for wts in c.style_stack {
 		if wts.type == type {
 			return wts.style
