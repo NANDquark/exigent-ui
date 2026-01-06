@@ -1,11 +1,11 @@
 package exigent
 
 import ba "core:container/bit_array"
-import "core:fmt"
 import "core:unicode/utf8"
 
 Input :: struct {
 	mouse_pos:     [2]f32,
+	scroll_delta:  f32,
 	key_down:      ba.Bit_Array,
 	mouse_down:    bit_set[Mouse_Button],
 	// cleared at end of frame since it is based on comparison with last frame
@@ -72,6 +72,7 @@ input_swap :: proc(c: ^Context) {
 	ba.clear(&c.input_curr.key_released)
 	c.input_curr.mouse_pressed = {}
 	c.input_curr.mouse_clicked = {}
+	c.input_curr.scroll_delta = 0
 
 }
 
@@ -169,6 +170,15 @@ input_is_mouse_clicked :: proc(c: ^Context, btn: Mouse_Button) -> bool {
 	return btn in c.input_curr.mouse_clicked
 }
 
+input_scroll :: proc(c: ^Context, delta: f32) {
+	c.input_curr.scroll_delta = delta
+}
+
+// scroll amount this frame in scroll notches
+input_get_scroll :: proc(c: ^Context) -> f32 {
+	return c.input_curr.scroll_delta
+}
+
 Key_Down_Iterator :: struct {
 	key_map:  map[int]Special_Key,
 	key_max:  int,
@@ -207,3 +217,4 @@ input_char :: proc(c: ^Context, r: rune) {
 	bytes, len := utf8.encode_rune(r)
 	text_buffer_append(c.active_text_buffer, bytes[:len])
 }
+

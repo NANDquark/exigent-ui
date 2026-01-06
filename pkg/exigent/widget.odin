@@ -131,7 +131,7 @@ widget_pick :: proc(w: ^Widget, mouse_pos: [2]f32) -> (hovered: ^Widget, found: 
 }
 
 Widget_Interaction :: struct {
-	hovered: bool, // hovered
+	hovered: bool,
 	down:    bool, // held down for one or more frames
 	pressed: bool, // single frame mouse press down
 	clicked: bool, // single frame mouse released inside widget
@@ -256,26 +256,26 @@ text_input :: proc(
 }
 
 Scrollbox :: struct {
-	y_offset: f32, // persists across frames
-	w:        ^Widget,
+	scroll_step_px: f32, // optional config for scroll speed
+	y_offset:       f32, // persists across frames
+	// used within begin/end to get attributes of the widget
+	_w:             ^Widget,
 	// when rect_take procs are used this contains the result, and negative height
 	// means the content must clip and scroll
 	// TODO: Not sure I like this solution, but it avoids caching content size
 	// across frames size but it is pretty "magic" and requires careful usage so
 	// not robust to using it wrong
-	layout:   ^Rect,
-	// _content_height: f32, // accumulated per frame
+	_layout:        ^Rect,
 }
 
 Widget_Type_SCROLLBOX := widget_register(
 	Widget_Style {
 		base = Style {
-			background = Color{150, 150, 150},
+			background = Color{120, 120, 120},
 			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0}},
 		},
 	},
 )
-// Modifies the r Rect so it is only the content section
 scrollbox_begin :: proc(
 	c: ^Context,
 	r: ^Rect,
@@ -283,29 +283,48 @@ scrollbox_begin :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) {
-	// this explicitly takes a copy of the r Rect since rect_take operations
+	// this explicitly copies the r Rect since rect_take operations
 	// will modify the original Rect as we add content to it
 	widget_begin(c, Widget_Type_SCROLLBOX, r^, caller, sub_id)
 
-	data.w = c.widget_curr
-	data.layout = r
+	data._w = c.widget_curr
+	data._layout = r
 	draw_background(c)
 
 	append(&c.scrollbox_stack, data)
 }
+
+SCROLL_STEP_PX_DEFAULT :: 20
 
 scrollbox_end :: proc(c: ^Context) {
 	scrollbox := pop(&c.scrollbox_stack)
 
 	// TODO: move the scroll bar color and alpha to the Style struct
 
-	// only show scrollbox when content extends beyond scrollbox height
-	if scrollbox.layout.h < 0 {
-		rect := scrollbox.w.rect
-		scrollbar := rect_cut_right(&rect, 20)
-		style := style_curr(c)
+	// only do scrollbox when content extends beyond scrollbox height
+	if scrollbox._layout.h < 0 {
+		scrollbox_height := scrollbox._w.rect.h
+		content_height := scrollbox_height + (-scrollbox._layout.h)
+
+		// update scroll position
+		if (rect_contains(scrollbox._w.rect, input_get_mouse_pos(c))) {
+			scroll_delta := input_get_scroll(c)
+			speed: f32 = SCROLL_STEP_PX_DEFAULT
+			if scrollbox.scroll_step_px > 0 {
+				speed = scrollbox.scroll_step_px
+			}
+			scrollbox.y_offset += scroll_delta * speed
+			scrollbox.y_offset = math.clamp(
+				scrollbox.y_offset,
+				-(content_height - scrollbox_height),
+				0,
+			)
+		}
 
 		// draw scrollbar track
+		rect := scrollbox._w.rect
+		scrollbar := rect_cut_right(&rect, 20)
+		style := style_curr(c)
 		scrollbar_track := scrollbar
 		draw_rect(
 			c,
@@ -320,8 +339,6 @@ scrollbox_end :: proc(c: ^Context) {
 		)
 
 		// draw scrollbar "thumb"
-		scrollbox_height := scrollbox.w.rect.h
-		content_height := scrollbox_height + (-scrollbox.layout.h)
 		thumb_height := scrollbox_height * scrollbox_height / content_height
 		thumb_height = math.max(thumb_height, 20) // min thumb size
 		pct := -scrollbox.y_offset / (content_height - scrollbox_height)
@@ -333,12 +350,13 @@ scrollbox_end :: proc(c: ^Context) {
 			w = scrollbar.w,
 		}
 		thumb = rect_inset(thumb, 2)
+		// TODO: hover/active colors for click-interaction with thumb
 		draw_rect(c, thumb, color_blend(style.background, Color{}, 0.3), 185)
 	}
 
 	// cleanup
-	scrollbox.w = nil
-	// scrollbox._content_height = 0
+	scrollbox._w = nil
+	scrollbox._layout = {}
 	widget_end(c)
 }
 

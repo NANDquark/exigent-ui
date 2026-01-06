@@ -45,7 +45,6 @@ main :: proc() {
 	state.input1 = ui.Text_Input {
 		text = ui.text_buffer_create(input1_buf[:]),
 	}
-	state.scroll1.y_offset = 100
 
 	for !rl.WindowShouldClose() {
 		// Input - Check for released keys
@@ -94,21 +93,27 @@ main :: proc() {
 			ui.input_mouse_up(ctx, .Middle)
 		}
 
+		// Input - scroll
+		scroll_delta := rl.GetMouseWheelMove()
+		if scroll_delta != 0 {
+			ui.input_scroll(ctx, scroll_delta)
+		}
+
 		// Update - Build UI
 		ui.begin(ctx, 800, 600)
 		r := ui.Rect{0, 0, 800, 600}
 
-		section := ui.rect_cut_top(&r, 500)
-		section = ui.rect_inset(section, ui.Inset{20, 90, 20, 90})
-		ui.scrollbox_begin(ctx, &section, &state.scroll1)
+		scrollbox := ui.rect_cut_top(&r, 500)
+		scrollbox = ui.rect_inset(scrollbox, ui.Inset{20, 90, 20, 90})
+		ui.scrollbox_begin(ctx, &scrollbox, &state.scroll1)
 
-		line1 := ui.rect_take_top(&section, 200)
+		line1 := ui.rect_take_top(&scrollbox, 200)
 		line1 = ui.rect_inset(line1, 10)
 		ui.button(ctx, line1, "One")
-		line2 := ui.rect_take_top(&section, 200)
+		line2 := ui.rect_take_top(&scrollbox, 200)
 		line2 = ui.rect_inset(line2, 10)
 		ui.button(ctx, line2, "Two")
-		line3 := ui.rect_take_top(&section, 200)
+		line3 := ui.rect_take_top(&scrollbox, 200)
 		line3 = ui.rect_inset(line3, 10)
 		ui.button(ctx, line3, "Three")
 
