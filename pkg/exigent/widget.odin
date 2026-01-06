@@ -12,7 +12,6 @@ Widget :: struct {
 	children:    [dynamic]^Widget,
 	rect, clip:  Rect,
 	style:       Widget_Style,
-	alpha:       u8,
 	interaction: Widget_Interaction,
 }
 
@@ -32,7 +31,6 @@ widget_begin :: proc(
 	id := widget_id_push(c, caller, sub_id)
 	w.id = id
 	w.type = type
-	w.alpha = 255
 	w.rect = rect
 	w.clip = rect
 	w.style = style_get(c, type)
@@ -179,16 +177,16 @@ root :: proc(c: ^Context, caller := #caller_location, sub_id: int = 0) {
 Widget_Type_BUTTON := widget_register(
 	Widget_Style {
 		base = Style {
-			background = Color{100, 100, 100},
-			border = Border_Style{type = .Square, thickness = 2},
+			background = Color{100, 100, 100, 255},
+			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0, 255}},
 		},
 		hover = Style {
-			background = Color{150, 150, 150},
-			border = Border_Style{type = .Square, thickness = 2},
+			background = Color{150, 150, 150, 255},
+			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0, 255}},
 		},
 		active = Style {
-			background = Color{50, 50, 50},
-			border = Border_Style{type = .Square, thickness = 2},
+			background = Color{50, 50, 50, 255},
+			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0, 255}},
 		},
 	},
 )
@@ -230,8 +228,8 @@ Text_Input :: struct {
 Widget_Type_TEXT_INPUT := widget_register(
 	Widget_Style {
 		base = Style {
-			background = Color{225, 225, 225},
-			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0}},
+			background = Color{225, 225, 225, 255},
+			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0, 255}},
 		},
 	},
 )
@@ -271,8 +269,8 @@ Scrollbox :: struct {
 Widget_Type_SCROLLBOX := widget_register(
 	Widget_Style {
 		base = Style {
-			background = Color{120, 120, 120},
-			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0}},
+			background = Color{120, 120, 120, 255},
+			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0, 255}},
 		},
 	},
 )
@@ -326,15 +324,16 @@ scrollbox_end :: proc(c: ^Context) {
 		scrollbar := rect_cut_right(&rect, 20)
 		style := style_curr(c)
 		scrollbar_track := scrollbar
+		faded_color := style.background
+		faded_color.a = 185
 		draw_rect(
 			c,
 			scrollbar_track,
-			style.background,
-			185,
+			faded_color,
 			Border_Style {
 				type = .Square,
 				thickness = 1,
-				color = color_blend(style.border.color, Color{255, 255, 255}, 0.3),
+				color = color_blend(style.border.color, Color{255, 255, 255, 255}, 0.3),
 			},
 		)
 
@@ -351,7 +350,9 @@ scrollbox_end :: proc(c: ^Context) {
 		}
 		thumb = rect_inset(thumb, 2)
 		// TODO: hover/active colors for click-interaction with thumb
-		draw_rect(c, thumb, color_blend(style.background, Color{}, 0.3), 185)
+		faded_color = color_blend(style.background, Color{0, 0, 0, 255}, 0.3)
+		faded_color.a = 185
+		draw_rect(c, thumb, faded_color)
 	}
 
 	// cleanup

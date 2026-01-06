@@ -14,31 +14,31 @@ test_color_blend :: proc(t: ^testing.T) {
 	cases := []TestCase {
 		{
 			desc = "blend 0.0",
-			c1 = Color{100, 100, 100},
-			c2 = Color{200, 200, 200},
+			c1 = Color{100, 100, 100, 255},
+			c2 = Color{200, 200, 200, 255},
 			factor = 0.0,
-			expected = Color{100, 100, 100},
+			expected = Color{100, 100, 100, 255},
 		},
 		{
 			desc = "blend 1.0",
-			c1 = Color{100, 100, 100},
-			c2 = Color{200, 200, 200},
+			c1 = Color{100, 100, 100, 255},
+			c2 = Color{200, 200, 200, 255},
 			factor = 1.0,
-			expected = Color{200, 200, 200},
+			expected = Color{200, 200, 200, 255},
 		},
 		{
 			desc = "blend 0.5",
-			c1 = Color{100, 100, 100},
-			c2 = Color{200, 200, 200},
+			c1 = Color{100, 100, 100, 255},
+			c2 = Color{200, 200, 200, 255},
 			factor = 0.5,
-			expected = Color{150, 150, 150},
+			expected = Color{150, 150, 150, 255},
 		},
 		{
 			desc = "blend 0.3 (rounding check)",
-			c1 = Color{0, 0, 0},
-			c2 = Color{255, 255, 255},
+			c1 = Color{0, 0, 0, 255},
+			c2 = Color{255, 255, 255, 255},
 			factor = 0.3,
-			expected = Color{77, 77, 77},
+			expected = Color{77, 77, 77, 255},
 		},
 	}
 
@@ -54,3 +54,4 @@ test_color_blend :: proc(t: ^testing.T) {
 		)
 	}
 }
+

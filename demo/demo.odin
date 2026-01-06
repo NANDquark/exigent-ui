@@ -35,7 +35,7 @@ main :: proc() {
 			spacing = 2,
 			line_height = 30,
 			font = &default_font,
-			color = ui.Color{},
+			color = ui.Color{0, 0, 0, 255},
 		},
 		measure_width,
 	)
@@ -103,28 +103,36 @@ main :: proc() {
 		ui.begin(ctx, 800, 600)
 		r := ui.Rect{0, 0, 800, 600}
 
-		scrollbox := ui.rect_cut_top(&r, 500)
+		scrollbox := ui.rect_cut_top(&r, 300)
 		scrollbox = ui.rect_inset(scrollbox, ui.Inset{20, 90, 20, 90})
 		ui.scrollbox_begin(ctx, &scrollbox, &state.scroll1)
 
-		line1 := ui.rect_take_top(&scrollbox, 200)
-		line1 = ui.rect_inset(line1, 10)
-		ui.button(ctx, line1, "One")
-		line2 := ui.rect_take_top(&scrollbox, 200)
-		line2 = ui.rect_inset(line2, 10)
-		ui.button(ctx, line2, "Two")
-		line3 := ui.rect_take_top(&scrollbox, 200)
-		line3 = ui.rect_inset(line3, 10)
-		ui.button(ctx, line3, "Three")
+		scroll_line1 := ui.rect_take_top(&scrollbox, 100)
+		scroll_line1 = ui.rect_inset(scroll_line1, 10)
+		if (ui.button(ctx, scroll_line1, "One").clicked) {
+			fmt.println("Scroll btn 1 clicked")
+		}
+
+		scroll_line2 := ui.rect_take_top(&scrollbox, 100)
+		scroll_line2 = ui.rect_inset(scroll_line2, 10)
+		if (ui.button(ctx, scroll_line2, "Two").clicked) {
+			fmt.println("Scroll btn 2 clicked")
+		}
+
+		scroll_line3 := ui.rect_take_top(&scrollbox, 100)
+		scroll_line3 = ui.rect_inset(scroll_line3, 10)
+		if (ui.button(ctx, scroll_line3, "Three").clicked) {
+			fmt.println("Scroll btn 3 clicked")
+		}
 
 		ui.scrollbox_end(ctx)
 
-		// line1 := ui.rect_cut_top(&r, 100)
-		// line1 = ui.rect_inset(line1, ui.Inset{20, 90, 20, 90})
-		// input_label := ui.rect_cut_left(&line1, line1.width / 2)
-		// input := line1
-
-		// ui.text_input(ctx, input, &state.input1.text)
+		line1 := ui.rect_cut_top(&r, 100)
+		line1 = ui.rect_inset(line1, ui.Inset{20, 90, 20, 90})
+		input_label := ui.rect_cut_left(&line1, line1.w / 2)
+		input := line1
+		ui.label(ctx, input_label, "Input: ")
+		ui.text_input(ctx, input, &state.input1.text)
 
 		// t2 := ui.rect_cut_top(&r, 100)
 		// t2 = ui.rect_inset(t2, ui.Inset{0, 90, 0, 90})
@@ -156,7 +164,7 @@ main :: proc() {
 			case ui.Command_Unclip:
 				rl.EndScissorMode()
 			case ui.Command_Rect:
-				rl_color := rl.Color{c.color.r, c.color.g, c.color.b, c.alpha}
+				rl_color := rl.Color(c.color)
 				switch c.border.type {
 				case .None:
 					rl.DrawRectangleV(
@@ -173,7 +181,7 @@ main :: proc() {
 					rl.DrawRectangleLinesEx(
 						rl.Rectangle{c.rect.x, c.rect.y, c.rect.w, c.rect.h},
 						f32(c.border.thickness),
-						rl.Color{c.border.color.r, c.border.color.g, c.border.color.b, c.alpha},
+						rl.Color(c.border.color),
 					)
 				}
 			case ui.Command_Text:

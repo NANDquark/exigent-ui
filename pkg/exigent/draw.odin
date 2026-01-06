@@ -2,26 +2,20 @@ package exigent
 
 import "core:strings"
 
-draw_rect :: proc(c: ^Context, r: Rect, color: Color, alpha: u8, border := Border_Style{}) {
+draw_rect :: proc(c: ^Context, r: Rect, color: Color, border := Border_Style{}) {
 	append(
 		&c.draw_cmds,
-		Command_Rect {
-			rect = r,
-			color = color,
-			alpha = alpha,
-			border = border,
-			clip = c.widget_curr.clip,
-		},
+		Command_Rect{rect = r, color = color, border = border, clip = c.widget_curr.clip},
 	)
 }
 
 draw_background :: proc(c: ^Context) {
 	style := style_curr(c)
-	draw_rect(c, c.widget_curr.rect, style.background, c.widget_curr.alpha, style.border)
+	draw_rect(c, c.widget_curr.rect, style.background, style.border)
 }
 
 // Draw a horizontal line
-draw_line_h :: proc(c: ^Context, x_start, x_end, y: f32, thickness: f32, color: Color, alpha: u8) {
+draw_line_h :: proc(c: ^Context, x_start, x_end, y: f32, thickness: f32, color: Color) {
 	x_min := min(x_start, x_end)
 	w := abs(x_end - x_start)
 	line := Rect {
@@ -30,11 +24,11 @@ draw_line_h :: proc(c: ^Context, x_start, x_end, y: f32, thickness: f32, color: 
 		w = w,
 		h = thickness,
 	}
-	draw_rect(c, line, color, alpha)
+	draw_rect(c, line, color)
 }
 
 // Draw a vertical line
-draw_line_v :: proc(c: ^Context, y_start, y_end, x: f32, thickness: f32, color: Color, alpha: u8) {
+draw_line_v :: proc(c: ^Context, y_start, y_end, x: f32, thickness: f32, color: Color) {
 	y_min := min(y_start, y_end)
 	h := abs(y_end - y_start)
 	line := Rect {
@@ -43,7 +37,7 @@ draw_line_v :: proc(c: ^Context, y_start, y_end, x: f32, thickness: f32, color: 
 		w = thickness,
 		h = h,
 	}
-	draw_rect(c, line, color, alpha)
+	draw_rect(c, line, color)
 }
 
 draw_text :: proc {

@@ -135,7 +135,6 @@ Command_Rect :: struct {
 	rect:   Rect,
 	clip:   Maybe(Rect),
 	color:  Color,
-	alpha:  u8,
 	border: Border_Style,
 }
 

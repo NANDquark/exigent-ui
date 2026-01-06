@@ -13,7 +13,7 @@ Style :: struct {
 	border:     Border_Style,
 }
 
-Color :: [3]u8
+Color :: [4]u8
 
 Border_Style :: struct {
 	type:      Border_Type,
@@ -49,6 +49,7 @@ color_blend :: proc(c1, c2: Color, t: f32) -> (cb: Color) {
 	cb.r = u8(f32(c1.r) + (f32(c2.r) - f32(c1.r)) * t + 0.5)
 	cb.g = u8(f32(c1.g) + (f32(c2.g) - f32(c1.g)) * t + 0.5)
 	cb.b = u8(f32(c1.b) + (f32(c2.b) - f32(c1.b)) * t + 0.5)
+	cb.a = u8(f32(c1.a) + (f32(c2.a) - f32(c1.a)) * t + 0.5)
 	return cb
 }
 
