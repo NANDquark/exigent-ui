@@ -33,6 +33,8 @@ Widget_Type_Style :: struct {
 	style: Widget_Style,
 }
 
+// TODO: This allocated at a global scope doesn't follow the pattern to allow
+// the caller to decide how allocations work, it should be cleaned up
 DEFAULT_STYLES := map[Widget_Type]Widget_Style{}
 
 @(private)

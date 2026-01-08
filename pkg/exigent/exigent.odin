@@ -4,8 +4,8 @@ import "core:mem"
 
 Context :: struct {
 	screen_width, screen_height: int,
-	is_building:                 bool, // when between begin/end
 	key_max:                     int,
+	atlas_size:                  int,
 	// caller-owned data
 	key_map:                     map[int]Special_Key,
 	active_text_buffer:          ^Text_Buffer,
@@ -32,11 +32,13 @@ context_init :: proc(
 	key_map: map[int]Special_Key,
 	key_min: int = 0,
 	key_max: int = 512,
+	atlas_size: int = 4096,
 	perm_allocator := context.allocator,
 	temp_allocator := context.temp_allocator,
 ) {
 	c.key_map = key_map
 	c.key_max = key_max
+	c.atlas_size = atlas_size
 
 	c.temp_allocator = temp_allocator
 	c.perm_allocator = perm_allocator
@@ -58,8 +60,6 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	c.screen_height = screen_height
 	c.widget_root = nil
 	c.active_widget_id = nil
-	c.is_building = true
-	clear(&c.draw_cmds)
 	clear(&c.scrollbox_stack)
 	c.widget_stack = make([dynamic]^Widget, c.temp_allocator)
 	c.style_stack = make([dynamic]Widget_Type_Style, c.temp_allocator)
@@ -90,7 +90,6 @@ end :: proc(c: ^Context) {
 	assert(len(c.scrollbox_stack) == 0, "every scrollbox must be ended")
 
 	c.widget_curr = nil
-	c.is_building = false
 	input_swap(c)
 	hovered, found := widget_pick(c.widget_root, c.input_curr.mouse_pos)
 	if found {

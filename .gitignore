@@ -1,3 +1,4 @@
 debug*
-demo.bin
-demo.exe
+*.bin
+*.exe
+*.pdb
