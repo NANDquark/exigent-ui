@@ -129,15 +129,15 @@ test_atlas_append :: proc(t: ^testing.T) {
 
 @(test)
 test_atlas_builder_add :: proc(t: ^testing.T) {
-	ab: Atlas_Builder
-	atlas_builder_init(&ab, 512, 1)
-	defer atlas_builder_destroy(&ab)
+	ab: Sprite_Packer
+	sprite_packer_init(&ab, 512, 1)
+	defer sprite_packer_destroy(&ab)
 
 	img := image_create(30, 30, context.allocator)
 	defer image_destroy(&img)
 
 	// 30 + 2*1 = 32. next_power_of_two(32) = 32.
-	sprite := atlas_builder_add(&ab, img)
+	sprite := sprite_packer_add(&ab, img)
 
 	testing.expect_value(t, sprite.width, 30)
 	testing.expect_value(t, sprite.height, 30)
@@ -154,7 +154,7 @@ test_atlas_builder_add :: proc(t: ^testing.T) {
 	testing.expect_value(t, sprite.uv_max, expected_max)
 
 	// Test atlas reuse
-	sprite2 := atlas_builder_add(&ab, img)
+	sprite2 := sprite_packer_add(&ab, img)
 	testing.expect_value(t, sprite2.atlas, sprite.atlas)
 	testing.expect_value(t, len(ab.entries), 1)
 
@@ -162,7 +162,7 @@ test_atlas_builder_add :: proc(t: ^testing.T) {
 	img_large := image_create(100, 100, context.allocator)
 	defer image_destroy(&img_large)
 	// 100 + 2 = 102 -> 128 slot size
-	sprite3 := atlas_builder_add(&ab, img_large)
+	sprite3 := sprite_packer_add(&ab, img_large)
 	testing.expect(t, sprite3.atlas != sprite.atlas)
 	testing.expect_value(t, len(ab.entries), 2)
 }
