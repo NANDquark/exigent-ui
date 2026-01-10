@@ -15,8 +15,10 @@ Context :: struct {
 	hovered_widget_id:           Maybe(Widget_ID), // persisted across frames
 	widget_stack:                [dynamic]^Widget,
 	style_stack:                 [dynamic]Widget_Type_Style,
-	// TODO: can text style stack be merged into style stack?
-	text_style_stack:            [dynamic]Font_Type,
+	// TODO: can text style stack be merged into style stack? Not easily. I
+	// tried this and it creates a bunch of headaches for style push/pop because
+	// now text style can be zero in a bunch of awkward places.
+	text_style_stack:            [dynamic]Text_Style_Type,
 	draw_cmds:                   [dynamic]Command,
 	scrollbox_stack:             [dynamic]^Scrollbox,
 	// temp data
