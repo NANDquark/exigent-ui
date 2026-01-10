@@ -8,22 +8,22 @@ Context :: struct {
 	atlas_size:                  int,
 	// caller-owned data
 	key_map:                     map[int]Special_Key,
-	active_text_buffer:          ^Text_Buffer,
 	// persistent data
 	perm_allocator:              mem.Allocator,
 	input_prev, input_curr:      ^Input, // persisted so it can be diffed
 	style_default:               map[Widget_Type]Widget_Style,
 	hovered_widget_id:           Maybe(Widget_ID), // persisted across frames
+	widget_stack:                [dynamic]^Widget,
+	style_stack:                 [dynamic]Widget_Type_Style,
+	// TODO: can text style stack be merged into style stack?
+	text_style_stack:            [dynamic]Font_Type,
 	draw_cmds:                   [dynamic]Command,
 	scrollbox_stack:             [dynamic]^Scrollbox,
 	// temp data
 	temp_allocator:              mem.Allocator,
 	widget_root, widget_curr:    ^Widget,
-	widget_stack:                [dynamic]^Widget,
-	style_stack:                 [dynamic]Widget_Type_Style,
-	text_style_stack:            [dynamic]Text_Style_Type,
-	// TODO: could get rid of id_stack and just use widget_stack[0].id
-	active_widget_id:            Maybe(Widget_ID), // only used within a frame
+	active_widget_id:            Maybe(Widget_ID),
+	active_text_buffer:          ^Text_Buffer,
 }
 
 context_init :: proc(
@@ -41,6 +41,9 @@ context_init :: proc(
 
 	c.temp_allocator = temp_allocator
 	c.perm_allocator = perm_allocator
+	c.widget_stack.allocator = c.perm_allocator
+	c.style_stack.allocator = c.perm_allocator
+	c.text_style_stack.allocator = c.perm_allocator
 	c.draw_cmds.allocator = c.perm_allocator
 	c.scrollbox_stack.allocator = c.perm_allocator
 	c.input_prev = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
@@ -61,9 +64,9 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	c.active_widget_id = nil
 	clear(&c.draw_cmds)
 	clear(&c.scrollbox_stack)
-	c.widget_stack = make([dynamic]^Widget, c.temp_allocator)
-	c.style_stack = make([dynamic]Widget_Type_Style, c.temp_allocator)
-	c.text_style_stack = make([dynamic]Text_Style_Type, c.temp_allocator)
+	clear(&c.widget_stack)
+	clear(&c.style_stack)
+	clear(&c.text_style_stack)
 
 	root(c) // create root widget all builder-code widgets are children of
 
@@ -85,7 +88,6 @@ end :: proc(c: ^Context) {
 	assert(len(c.widget_stack) == 0, "every widget_begin must have a widget_end")
 	assert(len(c.style_stack) == 0, "every style_push must have a style_pop")
 	assert(len(c.text_style_stack) == 0, "every text_style_push must have a text_style_pop")
-	// assert(len(c.id_stack) == 0, "every widget id must be popped")
 	assert(len(c.scrollbox_stack) == 0, "every scrollbox must be ended")
 
 	c.widget_curr = nil

@@ -149,12 +149,10 @@ widget_interaction :: proc(c: ^Context, w: ^Widget) {
 Widget_Type :: distinct i32
 Widget_Type_NONE := Widget_Type(0)
 
-@(private = "file")
-_next_widget_type := 1
-
 widget_register :: proc "contextless" (style: Widget_Style) -> Widget_Type {
-	wt := Widget_Type(_next_widget_type)
-	_next_widget_type += 1
+	@(static) next_type := 1
+	next_type += 1
+	wt := Widget_Type(next_type)
 	style_default_register(wt, style)
 	return wt
 }

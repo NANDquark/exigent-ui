@@ -152,4 +152,3 @@ text_buffer_clear :: proc(tbuf: ^Text_Buffer) {
 text_buffer_to_string :: proc(tbuf: ^Text_Buffer) -> string {
 	return string(tbuf.buf[:tbuf.len])
 }
-
