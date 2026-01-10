@@ -23,7 +23,6 @@ Context :: struct {
 	style_stack:                 [dynamic]Widget_Type_Style,
 	text_style_stack:            [dynamic]Text_Style_Type,
 	// TODO: could get rid of id_stack and just use widget_stack[0].id
-	id_stack:                    [dynamic]Widget_ID,
 	active_widget_id:            Maybe(Widget_ID), // only used within a frame
 }
 
@@ -65,7 +64,6 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	c.widget_stack = make([dynamic]^Widget, c.temp_allocator)
 	c.style_stack = make([dynamic]Widget_Type_Style, c.temp_allocator)
 	c.text_style_stack = make([dynamic]Text_Style_Type, c.temp_allocator)
-	c.id_stack = make([dynamic]Widget_ID, c.temp_allocator)
 
 	root(c) // create root widget all builder-code widgets are children of
 
@@ -87,7 +85,7 @@ end :: proc(c: ^Context) {
 	assert(len(c.widget_stack) == 0, "every widget_begin must have a widget_end")
 	assert(len(c.style_stack) == 0, "every style_push must have a style_pop")
 	assert(len(c.text_style_stack) == 0, "every text_style_push must have a text_style_pop")
-	assert(len(c.id_stack) == 0, "every widget id must be popped")
+	// assert(len(c.id_stack) == 0, "every widget id must be popped")
 	assert(len(c.scrollbox_stack) == 0, "every scrollbox must be ended")
 
 	c.widget_curr = nil

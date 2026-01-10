@@ -28,7 +28,7 @@ widget_begin :: proc(
 	}
 
 	w := new(Widget, c.temp_allocator)
-	id := widget_id_push(c, caller, sub_id)
+	id := widget_create_id(c, caller, sub_id)
 	w.id = id
 	w.type = type
 	w.rect = rect
@@ -56,12 +56,9 @@ widget_begin :: proc(
 }
 
 widget_end :: proc(c: ^Context) {
-	widget_id_pop(c)
-
 	if len(c.widget_stack) > 0 {
 		c.widget_curr = pop(&c.widget_stack)
 	}
-
 	unclip(c)
 }
 
@@ -77,14 +74,14 @@ Raw_Widget_ID :: struct #packed {
 }
 
 @(private = "file")
-widget_id_push :: proc(
+widget_create_id :: proc(
 	c: ^Context,
 	caller: runtime.Source_Code_Location,
 	sub_id: int = 0,
 ) -> Widget_ID {
 	top_stack_id: u32
-	if len(c.id_stack) > 0 {
-		top_stack_id = u32(c.id_stack[len(c.id_stack) - 1])
+	if len(c.widget_stack) > 0 {
+		top_stack_id = u32(c.widget_stack[len(c.widget_stack) - 1].id)
 	}
 	raw := Raw_Widget_ID {
 		stack_id = top_stack_id,
@@ -95,14 +92,9 @@ widget_id_push :: proc(
 	}
 	bytes := mem.any_to_bytes(raw)
 	id := Widget_ID(hash.fnv32a(bytes))
-	append(&c.id_stack, id)
 	return id
 }
 
-@(private = "file")
-widget_id_pop :: proc(c: ^Context) {
-	pop(&c.id_stack)
-}
 
 // pick the top-most widget at the mouse_pos
 @(private)
@@ -375,4 +367,3 @@ scrollbox_total_y_offset :: proc(c: ^Context) -> f32 {
 	}
 	return total
 }
-
