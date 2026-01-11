@@ -127,6 +127,7 @@ Command :: union {
 	Command_Text,
 	Command_Clip,
 	Command_Unclip,
+	Command_Sprite,
 }
 
 Command_Done :: struct {}
@@ -150,3 +151,8 @@ Command_Clip :: struct {
 }
 
 Command_Unclip :: struct {}
+
+Command_Sprite :: struct {
+	sprite: Sprite,
+	rect:   Rect,
+}

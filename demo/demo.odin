@@ -3,6 +3,9 @@ package demo
 import ui "../pkg/exigent"
 import "base:runtime"
 import "core:fmt"
+import "core:image"
+import "core:image/png"
+import "core:math"
 import "core:strings"
 import rl "vendor:raylib"
 
@@ -31,6 +34,8 @@ main :: proc() {
 	key_map[int(rl.KeyboardKey.ENTER)] = .Enter
 	key_map[int(rl.KeyboardKey.ESCAPE)] = .Escape
 
+	sprite_map, texture_map := preload_sprites()
+
 	// Initialize UI related context and defaults
 	ctx := &ui.Context{}
 	ui.context_init(ctx, key_map)
@@ -53,12 +58,13 @@ main :: proc() {
 		text = ui.text_buffer_create(input1_buf[:]),
 	}
 
+
 	for !rl.WindowShouldClose() {
 		{
 			prof_frame()
 			input(ctx)
-			update(ctx)
-			my_draw(ctx)
+			update(ctx, sprite_map)
+			my_draw(ctx, texture_map)
 		}
 
 		// Raylib consumes the rest of the frame time to vsync to FPS so this
@@ -129,7 +135,7 @@ input :: proc(ctx: ^ui.Context) {
 	}
 }
 
-update :: proc(ctx: ^ui.Context) {
+update :: proc(ctx: ^ui.Context, sprite_map: map[Sprite_Type]ui.Sprite) {
 	prof_frame_part()
 
 	ui.begin(ctx, WIDTH, HEIGHT) // Update - Build UI
@@ -167,9 +173,17 @@ update :: proc(ctx: ^ui.Context) {
 	input := line1
 	ui.label(ctx, input_label, "Input: ")
 	ui.text_input(ctx, input, &state.input1.text)
+
+	line2 := ui.rect_cut_top(&r, 100)
+	line2 = ui.rect_inset(line2, ui.Inset{20, 90, 20, 90})
+	icon_width := math.floor(line2.w / f32(len(sprite_map)))
+	for st, sp in sprite_map {
+		icon := ui.rect_cut_left(&line2, icon_width)
+		ui.draw_sprite(ctx, sp, icon)
+	}
 }
 
-my_draw :: proc(ctx: ^ui.Context) {
+my_draw :: proc(ctx: ^ui.Context, texture_map: map[ui.Atlas_Handle]rl.Texture2D) {
 	prof_frame_part()
 
 	rl.BeginDrawing()
@@ -211,6 +225,22 @@ my_draw :: proc(ctx: ^ui.Context) {
 			f := cast(^rl.Font)c.style.font
 			rcolor := rl.Color{c.style.color.r, c.style.color.g, c.style.color.b, 255}
 			rl.DrawTextEx(f^, cstr, c.pos, c.style.size, c.style.spacing, rcolor)
+		case ui.Command_Sprite:
+			c2 := c
+			texture := texture_map[c.sprite.atlas]
+			src := rl.Rectangle {
+				x      = c.sprite.uv_min.x * f32(texture.width),
+				y      = c.sprite.uv_min.y * f32(texture.height),
+				width  = (c.sprite.uv_max.x - c.sprite.uv_min.x) * f32(texture.width),
+				height = (c.sprite.uv_max.y - c.sprite.uv_min.y) * f32(texture.height),
+			}
+			dst := rl.Rectangle {
+				x      = c.rect.x,
+				y      = c.rect.y,
+				width  = c.rect.w,
+				height = c.rect.h,
+			}
+			rl.DrawTexturePro(texture, src, dst, rl.Vector2{}, 0, rl.WHITE)
 		}
 	}
 
@@ -222,4 +252,58 @@ measure_width :: proc(style: ui.Text_Style, text: string) -> f32 {
 	f := cast(^rl.Font)style.font
 	m := rl.MeasureTextEx(f^, cstr, style.size, style.spacing)
 	return m.x
+}
+
+Sprite_Type :: enum {
+	Alert_Icon,
+	Clock_Icon,
+	Charts_Icon,
+	Sun_Icon,
+	Wrench_Icon,
+	Crop_Icon,
+}
+
+preload_sprites :: proc() -> (map[Sprite_Type]ui.Sprite, map[ui.Atlas_Handle]rl.Texture2D) {
+	sprite_map := make(map[Sprite_Type]ui.Sprite)
+	texture_map := make(map[ui.Atlas_Handle]rl.Texture2D)
+
+	sp := ui.Sprite_Packer{}
+	ui.sprite_packer_init(&sp)
+
+	icons := map[Sprite_Type]string{}
+	icons[.Alert_Icon] = "demo/res/icons/symbol alert.png"
+	icons[.Clock_Icon] = "demo/res/icons/object clock time.png"
+	icons[.Charts_Icon] = "demo/res/icons/object charts.png"
+	icons[.Sun_Icon] = "demo/res/icons/object sun.png"
+	icons[.Wrench_Icon] = "demo/res/icons/object wrench.png"
+	icons[.Crop_Icon] = "demo/res/icons/symbol crop resize.png"
+
+	for type, fp in icons {
+		img, err := png.load_from_file(fp, png.Options{})
+		if err != nil {
+			panic(fmt.tprintf("failed to load %s, err=%v", fp, err))
+		}
+		ui_img := ui.image_convert_from_image(img)
+		image.destroy(img)
+		sprite_map[type] = ui.sprite_packer_add(&sp, ui_img)
+	}
+
+	it := ui.sprite_packer_make_iter(&sp)
+	for {
+		atlas_texture, ok := ui.sprite_packer_iter_next(&it)
+		if !ok {
+			break
+		}
+		rl_img := rl.Image {
+			data    = raw_data(atlas_texture.texture.pixels),
+			width   = i32(atlas_texture.texture.width),
+			height  = i32(atlas_texture.texture.height),
+			mipmaps = 1,
+			format  = rl.PixelFormat.UNCOMPRESSED_R8G8B8A8,
+		}
+		rl_texture := rl.LoadTextureFromImage(rl_img)
+		texture_map[atlas_texture.handle] = rl_texture
+	}
+
+	return sprite_map, texture_map
 }

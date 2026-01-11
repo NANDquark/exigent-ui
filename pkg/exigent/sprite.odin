@@ -1,5 +1,6 @@
 package exigent
 
+import "core:image"
 import "core:math"
 import "core:mem"
 
@@ -185,7 +186,7 @@ atlas_create :: proc(
 	num_rows := atlas_size / slot_size
 	return Atlas {
 		handle = handle,
-		texture = image_create(atlas_size, atlas_size, allocator),
+		texture = image_create_empty(atlas_size, atlas_size, allocator),
 		slot_size = slot_size,
 		slots = make([]Sprite, slots_per_row * num_rows),
 		free_slot = 0,
@@ -195,7 +196,7 @@ atlas_create :: proc(
 }
 
 atlas_destroy :: proc(a: ^Atlas) {
-	image_destroy(&a.texture)
+	image_destroy(a.texture)
 	delete(a.slots, a.allocator)
 }
 
@@ -234,7 +235,7 @@ Image :: struct {
 	width, height: int,
 }
 
-image_create :: proc(width, height: int, allocator := context.allocator) -> Image {
+image_create_empty :: proc(width, height: int, allocator := context.allocator) -> Image {
 	return Image {
 		pixels = make([dynamic]Color, width * height, allocator),
 		width = width,
@@ -242,7 +243,26 @@ image_create :: proc(width, height: int, allocator := context.allocator) -> Imag
 	}
 }
 
-image_destroy :: proc(i: ^Image) {
+image_convert_from_image :: proc(in_img: ^image.Image, allocator := context.allocator) -> Image {
+	// Ensure the incoming image has the correct byte layout
+	if in_img.channels < 4 {
+		image.alpha_add_if_missing(in_img)
+	}
+	if in_img.depth != 8 {
+		panic("only 8 bit images supported for now")
+		// TODO convert
+	}
+
+	// Now copy those bytes into our Image struct
+	img := image_create_empty(in_img.width, in_img.height, allocator)
+	in_pixels := mem.slice_data_cast([]Color, in_img.pixels.buf[:])
+	assert(len(img.pixels) == len(in_pixels), "unexpected image byte format")
+	copy(img.pixels[:], in_pixels)
+
+	return img
+}
+
+image_destroy :: proc(i: Image) {
 	delete(i.pixels)
 }
 
@@ -264,4 +284,3 @@ image_overlay :: proc(base: ^Image, top: Image, pos: [2]int) {
 		mem.copy(&base.pixels[dest_start], &top.pixels[src_start], top.width * size_of(Color))
 	}
 }
-

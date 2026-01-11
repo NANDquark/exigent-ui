@@ -47,14 +47,14 @@ test_image_overlay :: proc(t: ^testing.T) {
 	}
 
 	for c in cases {
-		base := image_create(c.base_w, c.base_h, context.allocator)
-		defer image_destroy(&base)
+		base := image_create_empty(c.base_w, c.base_h, context.allocator)
+		defer image_destroy(base)
 		for i in 0 ..< len(base.pixels) {
 			base.pixels[i] = c.base_color
 		}
 
-		top := image_create(c.top_w, c.top_h, context.allocator)
-		defer image_destroy(&top)
+		top := image_create_empty(c.top_w, c.top_h, context.allocator)
+		defer image_destroy(top)
 		for i in 0 ..< len(top.pixels) {
 			top.pixels[i] = c.top_color
 		}
@@ -111,8 +111,8 @@ test_atlas_append :: proc(t: ^testing.T) {
 	atlas := atlas_create(0, 128, 64, 2, context.allocator)
 	defer atlas_destroy(&atlas)
 
-	img := image_create(10, 10, context.allocator)
-	defer image_destroy(&img)
+	img := image_create_empty(10, 10, context.allocator)
+	defer image_destroy(img)
 
 	// First append
 	pos1 := atlas_append(&atlas, img, 2)
@@ -133,8 +133,8 @@ test_atlas_builder_add :: proc(t: ^testing.T) {
 	sprite_packer_init(&ab, 512, 1)
 	defer sprite_packer_destroy(&ab)
 
-	img := image_create(30, 30, context.allocator)
-	defer image_destroy(&img)
+	img := image_create_empty(30, 30, context.allocator)
+	defer image_destroy(img)
 
 	// 30 + 2*1 = 32. next_power_of_two(32) = 32.
 	sprite := sprite_packer_add(&ab, img)
@@ -159,11 +159,10 @@ test_atlas_builder_add :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(ab.entries), 1)
 
 	// Test new atlas for different size
-	img_large := image_create(100, 100, context.allocator)
-	defer image_destroy(&img_large)
+	img_large := image_create_empty(100, 100, context.allocator)
+	defer image_destroy(img_large)
 	// 100 + 2 = 102 -> 128 slot size
 	sprite3 := sprite_packer_add(&ab, img_large)
 	testing.expect(t, sprite3.atlas != sprite.atlas)
 	testing.expect_value(t, len(ab.entries), 2)
 }
-

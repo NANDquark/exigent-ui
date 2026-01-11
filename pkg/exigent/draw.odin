@@ -108,6 +108,11 @@ draw_text_ex :: proc(c: ^Context, text: string, offset: [2]f32) {
 	)
 }
 
+draw_sprite :: proc(c: ^Context, sprite: Sprite, dst: Rect) {
+	r := c.widget_curr.rect
+	append(&c.draw_cmds, Command_Sprite{sprite = sprite, rect = dst})
+}
+
 @(private)
 clip :: proc(c: ^Context, r: Rect) {
 	append(&c.draw_cmds, Command_Clip{rect = r})
@@ -117,4 +122,3 @@ clip :: proc(c: ^Context, r: Rect) {
 unclip :: proc(c: ^Context) {
 	append(&c.draw_cmds, Command_Unclip{})
 }
-
