@@ -1,6 +1,6 @@
 package demo
 
-import ui "../pkg/exigent"
+import ui "../exigent"
 import "base:runtime"
 import "core:fmt"
 import "core:image"

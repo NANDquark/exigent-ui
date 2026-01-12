@@ -14,10 +14,12 @@ PROF_MODE :: Profiling_Mode_Type(#config(PROF_MODE, 0))
 
 when PROF_MODE != .None {
 	spall_ctx: spall.Context
+
 	@(thread_local)
 	spall_buffer: spall.Buffer
 	@(thread_local)
 	buffer_backing: []u8
+	@(thread_local)
 	prof_allocator: mem.Allocator
 }
 
