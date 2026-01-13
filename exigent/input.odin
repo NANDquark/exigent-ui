@@ -1,11 +1,12 @@
 package exigent
+import "core:container/bit_array"
 import "core:mem"
 import "core:unicode/utf8"
 
 Input :: struct {
 	mouse_pos:        [2]f32,
 	scroll_delta:     f32,
-	key_down:         #sparse[Key]bool,
+	key_down:         bit_array.Bit_Array,
 	mouse_down:       bit_set[Mouse_Button],
 	frame_events:     [dynamic]Input_Event, // memory persists but is cleared each frame
 	event_handle_gen: uint,
@@ -55,6 +56,7 @@ input_create :: proc(
 	context.allocator = allocator
 	i := new(Input)
 	i.allocator = allocator
+	bit_array.init(&i.key_down, int(max(Key)) + 1, 0, allocator)
 	i.frame_events = make([dynamic]Input_Event, 0, max_events)
 	return i
 }
@@ -62,6 +64,7 @@ input_create :: proc(
 @(private)
 input_destroy :: proc(i: ^Input) {
 	context.allocator = i.allocator
+	bit_array.destroy(&i.key_down)
 	delete(i.frame_events)
 	free(i)
 }
@@ -73,7 +76,7 @@ input_swap :: proc(c: ^Context) {
 
 	// copy persistent values to curr frame
 	c.input_curr.mouse_pos = c.input_prev.mouse_pos
-	c.input_curr.key_down = c.input_prev.key_down
+	copy(c.input_curr.key_down.bits[:], c.input_prev.key_down.bits[:])
 	c.input_curr.mouse_down = c.input_prev.mouse_down
 
 	// clear frame-specific values
@@ -82,12 +85,13 @@ input_swap :: proc(c: ^Context) {
 }
 
 input_key_down :: proc(c: ^Context, key: Key) {
-	c.input_curr.key_down[key] = true
-	if !c.input_prev.key_down[key] {
+	k := int(key)
+	bit_array.set(&c.input_curr.key_down, k)
+	if !bit_array.get(&c.input_prev.key_down, k) {
 		for e in c.input_curr.frame_events {
 			#partial switch ke in e {
 			case Key_Event:
-				if ke.key == key && ke.type == .Pressed do return
+				if !ke.handled && ke.key == key && ke.type == .Pressed do return
 			}
 		}
 		append(&c.input_curr.frame_events, Key_Event{key = key, type = .Pressed})
@@ -95,7 +99,7 @@ input_key_down :: proc(c: ^Context, key: Key) {
 }
 
 input_is_key_down :: proc(c: ^Context, key: Key) -> bool {
-	return c.input_curr.key_down[key]
+	return bit_array.get(&c.input_curr.key_down, int(key))
 }
 
 // Check whether an Input_Event happened this frame. Set that event as handled
@@ -153,11 +157,11 @@ input_is_key_pressed :: proc(c: ^Context, key: Key, handle_event := true) -> (pr
 }
 
 input_key_up :: proc(c: ^Context, key: Key) {
-	c.input_curr.key_down[key] = false
+	bit_array.unset(&c.input_curr.key_down, int(key))
 	for e in c.input_curr.frame_events {
 		#partial switch ke in e {
 		case Key_Event:
-			if ke.key == key && ke.type == .Released do return
+			if !ke.handled && ke.key == key && ke.type == .Released do return
 		}
 	}
 	append(&c.input_curr.frame_events, Key_Event{key = key, type = .Released})
@@ -186,7 +190,7 @@ input_mouse_down :: proc(c: ^Context, btn: Mouse_Button) {
 		for e in c.input_curr.frame_events {
 			#partial switch me in e {
 			case Mouse_Event:
-				if me.button == btn && me.type == .Pressed do return
+				if !me.handled && me.button == btn && me.type == .Pressed do return
 			}
 		}
 		append(&c.input_curr.frame_events, Mouse_Event{button = btn, type = .Pressed})
@@ -198,7 +202,7 @@ input_mouse_up :: proc(c: ^Context, btn: Mouse_Button) {
 	for e in c.input_curr.frame_events {
 		#partial switch me in e {
 		case Mouse_Event:
-			if me.button == btn && me.type == .Released do return
+			if !me.handled && me.button == btn && me.type == .Released do return
 		}
 	}
 	append(&c.input_curr.frame_events, Mouse_Event{button = btn, type = .Released})
@@ -228,25 +232,20 @@ input_get_scroll :: proc(c: ^Context) -> f32 {
 }
 
 Key_Down_Iterator :: struct {
-	idx: int,
-	c:   ^Context,
+	iter: bit_array.Bit_Array_Iterator,
 }
 
 input_key_down_iterator :: proc(c: ^Context) -> Key_Down_Iterator {
-	return Key_Down_Iterator{c = c}
+	return Key_Down_Iterator {
+		iter = bit_array.make_iterator(&c.input_curr.key_down),
+	}
 }
 
 // Returns false when done
 input_key_down_iterator_next :: proc(it: ^Key_Down_Iterator) -> (Key, bool) {
-	for i in it.idx ..= int(max(Key)) {
-		it.idx = i + 1
-		k := Key(i)
-		if k != .None && it.c.input_curr.key_down[k] {
-			return k, true
-		}
-	}
-
-	return .None, false
+	idx, ok := bit_array.iterate_by_set(&it.iter)
+	if !ok do return .None, false
+	return Key(idx), true
 }
 
 input_char :: proc(c: ^Context, r: rune) {
