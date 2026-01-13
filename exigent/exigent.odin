@@ -4,10 +4,7 @@ import "core:mem"
 
 Context :: struct {
 	screen_width, screen_height: int,
-	key_max:                     int,
 	atlas_size:                  int,
-	// caller-owned data
-	key_map:                     map[int]Special_Key,
 	// persistent data
 	perm_allocator:              mem.Allocator,
 	input_prev, input_curr:      ^Input, // persisted so it can be diffed
@@ -30,15 +27,10 @@ Context :: struct {
 
 context_init :: proc(
 	c: ^Context,
-	key_map: map[int]Special_Key,
-	key_min: int = 0,
-	key_max: int = 512,
 	atlas_size: int = 4096,
 	perm_allocator := context.allocator,
 	temp_allocator := context.temp_allocator,
 ) {
-	c.key_map = key_map
-	c.key_max = key_max
 	c.atlas_size = atlas_size
 
 	c.temp_allocator = temp_allocator
@@ -48,8 +40,8 @@ context_init :: proc(
 	c.text_style_stack.allocator = c.perm_allocator
 	c.draw_cmds.allocator = c.perm_allocator
 	c.scrollbox_stack.allocator = c.perm_allocator
-	c.input_prev = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
-	c.input_curr = input_create(key_min, key_max + len(Special_Key), c.perm_allocator)
+	c.input_prev = input_create(allocator = c.perm_allocator)
+	c.input_curr = input_create(allocator = c.perm_allocator)
 	c.style_default = DEFAULT_STYLES
 }
 
@@ -73,14 +65,14 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	root(c) // create root widget all builder-code widgets are children of
 
 	if c.active_text_buffer != nil {
-		if input_is_key_released(c, Special_Key.Escape) {
+		if input_is_key_released(c, .Escape) {
 			text_buffer_clear(c.active_text_buffer)
 			c.active_text_buffer = nil
 		}
-		if input_is_key_released(c, Special_Key.Enter) {
+		if input_is_key_released(c, .Enter) {
 			c.active_text_buffer = nil
 		}
-		if input_is_key_released(c, Special_Key.Backspace) {
+		if input_is_key_released(c, .Backspace) {
 			text_buffer_pop(c.active_text_buffer)
 		}
 	}

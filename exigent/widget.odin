@@ -1,6 +1,7 @@
 package exigent
 
 import "base:runtime"
+import "core:fmt"
 import "core:hash"
 import "core:math"
 import "core:mem"
@@ -121,10 +122,10 @@ widget_pick :: proc(w: ^Widget, mouse_pos: [2]f32) -> (hovered: ^Widget, found: 
 }
 
 Widget_Interaction :: struct {
-	hovered: bool,
-	down:    bool, // held down for one or more frames
-	pressed: bool, // single frame mouse press down
-	clicked: bool, // single frame mouse released inside widget
+	hovered:  bool,
+	down:     bool, // held down for one or more frames
+	pressed:  bool, // single frame mouse press down
+	released: bool, // single frame mouse released inside widget
 }
 
 @(private)
@@ -134,14 +135,15 @@ widget_interaction :: proc(c: ^Context, w: ^Widget) {
 		w.interaction.hovered = true
 		w.interaction.down = input_is_mouse_down(c, .Left)
 		w.interaction.pressed = input_is_mouse_pressed(c, .Left)
-		w.interaction.clicked = input_is_mouse_clicked(c, .Left)
+		w.interaction.released = input_is_mouse_released(c, .Left)
 
 		if w.interaction.down {
 			c.active_widget_id = hovered_widget_id
 		}
 
-		if w.interaction.clicked {
+		if w.interaction.released {
 			c.active_text_buffer = nil
+			c.active_widget_id = nil
 		}
 	}
 }
@@ -236,7 +238,7 @@ text_input :: proc(
 	draw_background(c)
 	draw_text(c, text_buffer_to_string(text_buf), [2]f32{5, 5})
 
-	if c.widget_curr.interaction.clicked {
+	if c.widget_curr.interaction.released {
 		c.active_text_buffer = text_buf
 	}
 

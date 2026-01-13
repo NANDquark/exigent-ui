@@ -29,16 +29,11 @@ main :: proc() {
 	default_text_style_type := ui.Text_Style_Type("default")
 	default_font: rl.Font = rl.GetFontDefault()
 
-	key_map := map[int]ui.Special_Key{}
-	key_map[int(rl.KeyboardKey.BACKSPACE)] = .Backspace
-	key_map[int(rl.KeyboardKey.ENTER)] = .Enter
-	key_map[int(rl.KeyboardKey.ESCAPE)] = .Escape
-
 	sprite_map, texture_map := preload_sprites()
 
 	// Initialize UI related context and defaults
 	ctx := &ui.Context{}
-	ui.context_init(ctx, key_map)
+	ui.context_init(ctx)
 	ui.text_style_init(
 		default_text_style_type,
 		ui.Text_Style {
@@ -57,7 +52,6 @@ main :: proc() {
 	state.input1 = ui.Text_Input {
 		text = ui.text_buffer_create(input1_buf[:]),
 	}
-
 
 	for !rl.WindowShouldClose() {
 		{
@@ -84,23 +78,27 @@ input :: proc(ctx: ^ui.Context) {
 
 	// Input - Check for released keys
 	it := ui.input_key_down_iterator(ctx)
-	for true {
+	for {
 		key, ok := ui.input_key_down_iterator_next(&it)
 		if !ok do break
-		if rl.IsKeyReleased(rl.KeyboardKey(key)) {
+		rl_key := ui_to_rl_key(key)
+		if rl_key != .KEY_NULL && rl.IsKeyReleased(rl_key) {
 			ui.input_key_up(ctx, key)
 		}
 	}
 
 	// Input - Get all down keys
-	for true {
-		key := int(rl.GetKeyPressed())
-		if key == 0 do break
-		ui.input_key_down(ctx, key)
+	for {
+		rl_key := rl.GetKeyPressed()
+		if rl_key == .KEY_NULL do break
+		ui_key := rl_to_ui_key(rl_key)
+		if ui_key != .None {
+			ui.input_key_down(ctx, ui_key)
+		}
 	}
 
 	// Input - text
-	for true {
+	for {
 		r := rl.GetCharPressed()
 		if r == 0 do break
 		ui.input_char(ctx, r)
@@ -143,19 +141,19 @@ update :: proc(ctx: ^ui.Context, sprite_map: map[Sprite_Type]ui.Sprite) {
 
 	scroll_line1 := ui.rect_take_top(&scrollbox, 100)
 	scroll_line1 = ui.rect_inset(scroll_line1, 10)
-	if (ui.button(ctx, scroll_line1, "One").clicked) {
+	if (ui.button(ctx, scroll_line1, "One").released) {
 		fmt.println("Scroll btn 1 clicked")
 	}
 
 	scroll_line2 := ui.rect_take_top(&scrollbox, 100)
 	scroll_line2 = ui.rect_inset(scroll_line2, 10)
-	if (ui.button(ctx, scroll_line2, "Two").clicked) {
+	if (ui.button(ctx, scroll_line2, "Two").released) {
 		fmt.println("Scroll btn 2 clicked")
 	}
 
 	scroll_line3 := ui.rect_take_top(&scrollbox, 100)
 	scroll_line3 = ui.rect_inset(scroll_line3, 10)
-	if (ui.button(ctx, scroll_line3, "Three").clicked) {
+	if (ui.button(ctx, scroll_line3, "Three").released) {
 		fmt.println("Scroll btn 3 clicked")
 	}
 
@@ -184,7 +182,7 @@ my_draw :: proc(ctx: ^ui.Context, texture_map: map[ui.Atlas_Handle]rl.Texture2D)
 	rl.ClearBackground(rl.DARKBLUE)
 
 	ci := ui.cmd_iterator_create(ctx)
-	draw_ui: for true {
+	draw_ui: for {
 		cmd := ui.cmd_iterator_next(&ci)
 		switch c in cmd {
 		case ui.Command_Done:
@@ -220,7 +218,6 @@ my_draw :: proc(ctx: ^ui.Context, texture_map: map[ui.Atlas_Handle]rl.Texture2D)
 			rcolor := rl.Color{c.style.color.r, c.style.color.g, c.style.color.b, 255}
 			rl.DrawTextEx(f^, cstr, c.pos, c.style.size, c.style.spacing, rcolor)
 		case ui.Command_Sprite:
-			c2 := c
 			texture := texture_map[c.sprite.atlas]
 			src := rl.Rectangle {
 				x      = c.sprite.uv_min.x * f32(texture.width),
