@@ -163,9 +163,9 @@ update :: proc(ctx: ^ui.Context, sprite_map: map[Sprite_Type]ui.Sprite) {
 	line1 := ui.rect_cut_top(&r, 100)
 	line1 = ui.rect_inset(line1, ui.Inset{20, 90, 20, 90})
 	input_label := ui.rect_cut_left(&line1, line1.w / 2)
-	input := line1
 	ui.label(ctx, input_label, "Input: ")
-	ui.text_input(ctx, input, &state.input1.text)
+	input := line1
+	ui.text_input(ctx, input, &state.input1)
 
 	line2 := ui.rect_cut_top(&r, 100)
 	line2 = ui.rect_inset(line2, ui.Inset{20, 90, 20, 90})
@@ -180,7 +180,7 @@ my_draw :: proc(ctx: ^ui.Context, texture_map: map[ui.Atlas_Handle]rl.Texture2D)
 	prof_frame_part()
 
 	rl.BeginDrawing()
-	rl.ClearBackground(rl.DARKBLUE)
+	rl.ClearBackground(rl.WHITE)
 
 	ci := ui.cmd_iterator_create(ctx)
 	draw_ui: for {

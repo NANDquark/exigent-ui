@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:hash"
 import "core:math"
 import "core:mem"
+import "core:time"
 
 Widget :: struct {
 	id:          Widget_ID,
@@ -34,6 +35,7 @@ widget_begin :: proc(
 	w.id = id
 	w.type = type
 
+	w.interaction = widget_interaction(c, id)
 	widget_style := style_get(c, type)
 	style := widget_style.base
 	if w.id == c.active_widget_id && widget_style.active != {} {
@@ -64,7 +66,6 @@ widget_begin :: proc(
 		c.widget_root = c.widget_curr
 	}
 
-	widget_interaction(c, c.widget_curr)
 	clip(c, c.widget_curr.clip)
 }
 
@@ -141,23 +142,29 @@ Widget_Interaction :: struct {
 }
 
 @(private)
-widget_interaction :: proc(c: ^Context, w: ^Widget) {
+widget_interaction :: proc(c: ^Context, id: Widget_ID) -> Widget_Interaction {
 	hovered_widget_id, ok := c.hovered_widget_id.?
-	if ok && c.hovered_widget_id == w.id {
-		w.interaction.hovered = true
-		w.interaction.down = input_is_mouse_down(c, .Left)
-		w.interaction.pressed = input_is_mouse_pressed(c, .Left)
-		w.interaction.released = input_is_mouse_released(c, .Left)
+	if ok && c.hovered_widget_id == id {
+		wi := Widget_Interaction {
+			hovered  = true,
+			down     = input_is_mouse_down(c, .Left),
+			pressed  = input_is_mouse_pressed(c, .Left),
+			released = input_is_mouse_released(c, .Left),
+		}
 
-		if w.interaction.down {
+		if wi.down {
 			c.active_widget_id = hovered_widget_id
 		}
 
-		if w.interaction.released {
-			c.active_text_buffer = nil
+		if wi.released {
+			c.active_text_input = nil
 			c.active_widget_id = nil
 		}
+
+		return wi
 	}
+
+	return Widget_Interaction{}
 }
 
 Widget_Type :: distinct i32
@@ -232,8 +239,12 @@ label :: proc(
 }
 
 Text_Input :: struct {
-	text: Text_Buffer,
+	text:        Text_Buffer,
+	blink_rate:  time.Duration,
+	_focused_ts: time.Time,
 }
+
+BLINK_RATE_DEFAULT: time.Duration : 750 * time.Millisecond
 
 Widget_Type_TEXT_INPUT := widget_register(
 	Widget_Style {
@@ -246,18 +257,34 @@ Widget_Type_TEXT_INPUT := widget_register(
 text_input :: proc(
 	c: ^Context,
 	r: Rect,
-	text_buf: ^Text_Buffer,
+	data: ^Text_Input,
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
 	widget_begin(c, Widget_Type_TEXT_INPUT, r, caller, sub_id)
 	defer widget_end(c)
 
-	draw_background(c)
-	draw_text(c, text_buffer_to_string(text_buf), [2]f32{5, 5})
-
 	if c.widget_curr.interaction.released {
-		c.active_text_buffer = text_buf
+		c.active_text_input = data
+		data._focused_ts = time.now()
+	}
+
+	offset := [2]f32{5, 5}
+	text := text_buffer_to_string(&data.text)
+	blink_rate := data.blink_rate if data.blink_rate > 0 else BLINK_RATE_DEFAULT
+	elapsed := time.diff(data._focused_ts, time.now())
+	is_active := data == c.active_text_input
+	show_cursor := is_active && (elapsed % blink_rate) < (blink_rate / 2)
+
+	draw_background(c)
+	if len(text) > 0 do draw_text(c, text, offset)
+	if show_cursor {
+		current_text_width := text_width(c, text)
+		x := r.x + offset.x + current_text_width + 4
+		text_style := text_style_curr(c)
+		y_start := r.y + offset.y
+		y_end := r.y + offset.y + text_style.size
+		draw_line_v(c, y_start, y_end, x, 2, text_style.color)
 	}
 
 	return c.widget_curr.interaction
@@ -279,7 +306,7 @@ Scrollbox :: struct {
 Widget_Type_SCROLLBOX := widget_register(
 	Widget_Style {
 		base = Style {
-			background = Color{0, 0, 0, 255},
+			background = Color{50, 50, 50, 255},
 			border = Border_Style{type = .Square, thickness = 2, color = Color{0, 0, 0, 255}},
 		},
 	},

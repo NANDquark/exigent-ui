@@ -236,9 +236,7 @@ Key_Down_Iterator :: struct {
 }
 
 input_key_down_iterator :: proc(c: ^Context) -> Key_Down_Iterator {
-	return Key_Down_Iterator {
-		iter = bit_array.make_iterator(&c.input_curr.key_down),
-	}
+	return Key_Down_Iterator{iter = bit_array.make_iterator(&c.input_curr.key_down)}
 }
 
 // Returns false when done
@@ -249,10 +247,10 @@ input_key_down_iterator_next :: proc(it: ^Key_Down_Iterator) -> (Key, bool) {
 }
 
 input_char :: proc(c: ^Context, r: rune) {
-	if c.active_text_buffer == nil do return
+	if c.active_text_input == nil do return
 
 	bytes, len := utf8.encode_rune(r)
-	text_buffer_append(c.active_text_buffer, bytes[:len])
+	text_buffer_append(&c.active_text_input.text, bytes[:len])
 }
 
 Frame_Event_Iterator :: struct {

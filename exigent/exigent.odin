@@ -1,6 +1,7 @@
 package exigent
 
 import "core:mem"
+import "core:time"
 
 Context :: struct {
 	screen_width, screen_height: int,
@@ -22,7 +23,7 @@ Context :: struct {
 	temp_allocator:              mem.Allocator,
 	widget_root, widget_curr:    ^Widget,
 	active_widget_id:            Maybe(Widget_ID),
-	active_text_buffer:          ^Text_Buffer,
+	active_text_input:           ^Text_Input,
 }
 
 context_init :: proc(
@@ -64,16 +65,17 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 
 	root(c) // create root widget all builder-code widgets are children of
 
-	if c.active_text_buffer != nil {
+	if c.active_text_input != nil {
 		if input_is_key_released(c, .Escape) {
-			text_buffer_clear(c.active_text_buffer)
-			c.active_text_buffer = nil
+			text_buffer_clear(&c.active_text_input.text)
+			c.active_text_input._focused_ts = time.Time{}
+			c.active_text_input = nil
 		}
 		if input_is_key_released(c, .Enter) {
-			c.active_text_buffer = nil
+			c.active_text_input = nil
 		}
 		if input_is_key_released(c, .Backspace) {
-			text_buffer_pop(c.active_text_buffer)
+			text_buffer_pop(&c.active_text_input.text)
 		}
 	}
 }
