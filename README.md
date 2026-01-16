@@ -11,3 +11,5 @@ The name `exigent` means "requiring immediate action".
 ## Sample
 
 ![UI Sample](docs/ui-sample.png)
+
+This sample contains all the available widgets so far.
