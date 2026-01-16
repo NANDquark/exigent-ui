@@ -162,7 +162,7 @@ update :: proc(ctx: ^ui.Context, sprite_map: map[Sprite_Type]ui.Sprite) {
 	)
 	ui.text_input(ctx, line2_widget_r, &state.input1)
 
-	line3_label_r := ui.rect_cut_top(&labels_r, 100)
+	line3_label_r := ui.rect_cut_top(&labels_r, 120)
 	line3_label_r = ui.rect_inset(line3_label_r, ui.Inset{Top = 10})
 	ui.label(ctx, line3_label_r, "Scrollbox (no scroll):", .Center, .Top)
 	line3_widget_r := ui.rect_cut_top(&widgets_r, 120)
