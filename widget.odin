@@ -220,6 +220,7 @@ button :: proc(
 	c: ^Context,
 	r: Rect,
 	txt: string,
+	background_image := Sprite{},
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
@@ -232,8 +233,15 @@ button :: proc(
 		c.widget_curr.rect.y += 1
 	}
 
-	background(c)
-	text(c, txt, .Center, .Center)
+	if background_image != {} {
+		sprite(c, background_image, c.widget_curr.rect)
+	} else {
+		background(c)
+	}
+
+	if len(txt) > 0 {
+		text(c, txt, .Center, .Center)
+	}
 
 	return c.widget_curr.interaction
 }
