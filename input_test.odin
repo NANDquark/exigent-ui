@@ -1,6 +1,5 @@
 package exigent
 
-import "core:mem"
 import "core:testing"
 
 fixture_context_create :: proc() -> ^Context {

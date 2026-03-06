@@ -21,6 +21,9 @@ State :: struct {
 
 state := State{}
 
+textures: [dynamic]rl.Texture2D
+sprite_map: map[Sprite_Type]ui.Sprite
+
 main :: proc() {
 	prof_init()
 	defer prof_deinit()
@@ -31,7 +34,7 @@ main :: proc() {
 	default_text_style_type := ui.Text_Style_Type("default")
 	default_font: rl.Font = rl.GetFontDefault()
 
-	sprite_map, texture_map := preload_sprites()
+	textures, sprite_map = preload_sprites()
 
 	// Initialize UI related context and defaults
 	ctx := &ui.Context{}
@@ -60,8 +63,8 @@ main :: proc() {
 		{
 			prof_frame()
 			input(ctx)
-			update(ctx, sprite_map)
-			my_draw(ctx, texture_map)
+			update(ctx)
+			my_draw(ctx)
 		}
 
 		// Raylib consumes the rest of the frame time to vsync to FPS so this
@@ -128,7 +131,7 @@ input :: proc(ctx: ^ui.Context) {
 	}
 }
 
-update :: proc(ctx: ^ui.Context, sprite_map: map[Sprite_Type]ui.Sprite) {
+update :: proc(ctx: ^ui.Context) {
 	prof_frame_part()
 
 	ui.begin(ctx, WIDTH, HEIGHT) // Update - Build UI
@@ -214,7 +217,7 @@ update :: proc(ctx: ^ui.Context, sprite_map: map[Sprite_Type]ui.Sprite) {
 	}
 }
 
-my_draw :: proc(ctx: ^ui.Context, texture_map: map[ui.Atlas_Handle]rl.Texture2D) {
+my_draw :: proc(ctx: ^ui.Context) {
 	prof_frame_part()
 
 	rl.BeginDrawing()
@@ -259,7 +262,7 @@ my_draw :: proc(ctx: ^ui.Context, texture_map: map[ui.Atlas_Handle]rl.Texture2D)
 			rcolor := rl.Color{c.style.color.r, c.style.color.g, c.style.color.b, 255}
 			rl.DrawTextEx(f^, cstr, c.pos, c.style.size, c.style.spacing, rcolor)
 		case ui.Command_Sprite:
-			texture := texture_map[c.sprite.atlas]
+			texture := textures[c.sprite.texture]
 			src := rl.Rectangle {
 				x      = c.sprite.uv_min.x * f32(texture.width),
 				y      = c.sprite.uv_min.y * f32(texture.height),
@@ -295,12 +298,9 @@ Sprite_Type :: enum {
 	Crop_Icon,
 }
 
-preload_sprites :: proc() -> (map[Sprite_Type]ui.Sprite, map[ui.Atlas_Handle]rl.Texture2D) {
+preload_sprites :: proc() -> ([dynamic]rl.Texture2D, map[Sprite_Type]ui.Sprite) {
 	sprite_map := make(map[Sprite_Type]ui.Sprite)
-	texture_map := make(map[ui.Atlas_Handle]rl.Texture2D)
-
-	sp := ui.Sprite_Packer{}
-	ui.sprite_packer_init(&sp)
+	textures := make([dynamic]rl.Texture2D)
 
 	icons := map[Sprite_Type]string{}
 	icons[.Alert_Icon] = "demo/res/icons/symbol alert.png"
@@ -320,29 +320,24 @@ preload_sprites :: proc() -> (map[Sprite_Type]ui.Sprite, map[ui.Atlas_Handle]rl.
 			log.errorf("failed to convert img, err=%v", convert_err)
 		}
 		image.destroy(img)
-		sprite, add_err := ui.sprite_packer_add(&sp, ui_img)
-		if add_err != nil {
-			log.errorf("failed to add sprite, err=%v", add_err)
-		}
-		sprite_map[type] = sprite
-	}
-
-	it := ui.sprite_packer_make_iter(&sp)
-	for {
-		atlas_texture, ok := ui.sprite_packer_iter_next(&it)
-		if !ok {
-			break
-		}
 		rl_img := rl.Image {
-			data    = raw_data(atlas_texture.texture.pixels),
-			width   = i32(atlas_texture.texture.width),
-			height  = i32(atlas_texture.texture.height),
+			data    = raw_data(ui_img.pixels),
+			width   = i32(ui_img.width),
+			height  = i32(ui_img.height),
 			mipmaps = 1,
 			format  = rl.PixelFormat.UNCOMPRESSED_R8G8B8A8,
 		}
 		rl_texture := rl.LoadTextureFromImage(rl_img)
-		texture_map[atlas_texture.handle] = rl_texture
+		texture_idx := len(textures)
+		append(&textures, rl_texture)
+		sprite_map[type] = ui.Sprite {
+			texture = ui.Texture_Handle(texture_idx),
+			uv_min  = {0, 0},
+			uv_max  = {1, 1},
+			width   = ui_img.width,
+			height  = ui_img.height,
+		}
 	}
 
-	return sprite_map, texture_map
+	return textures, sprite_map
 }
