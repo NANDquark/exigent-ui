@@ -188,12 +188,12 @@ update :: proc(ctx: ^ui.Context) {
 	top_bot_inset := (line2_widget_r.h - inner_height) / 2
 	line2_widget_r = ui.rect_inset(
 		line2_widget_r,
-		ui.Inset{Top = top_bot_inset, Bottom = top_bot_inset},
+		ui.Inset{top = top_bot_inset, bottom = top_bot_inset},
 	)
 	ui.text_input(ctx, line2_widget_r, &state.input1)
 
 	line3_label_r := ui.rect_cut_top(&labels_r, 120)
-	line3_label_r = ui.rect_inset(line3_label_r, ui.Inset{Top = 10})
+	line3_label_r = ui.rect_inset(line3_label_r, ui.Inset{top = 10})
 	ui.label(ctx, line3_label_r, "Scrollbox (no scroll):", .Center, .Top)
 	line3_widget_r := ui.rect_cut_top(&widgets_r, 120)
 	line3_widget_r = ui.rect_inset(line3_widget_r, 10)
@@ -205,7 +205,7 @@ update :: proc(ctx: ^ui.Context) {
 	ui.scrollbox_end(ctx)
 
 	line4_label_r := ui.rect_cut_top(&labels_r, 100)
-	line4_label_r = ui.rect_inset(line4_label_r, ui.Inset{Top = 10})
+	line4_label_r = ui.rect_inset(line4_label_r, ui.Inset{top = 10})
 	ui.label(ctx, line4_label_r, "Scrollbox (scroll):", .Center, .Top)
 	line4_widget_r := ui.rect_cut_top(&widgets_r, 120)
 	line4_widget_r = ui.rect_inset(line4_widget_r, 10)
@@ -216,19 +216,19 @@ update :: proc(ctx: ^ui.Context) {
 	scroll2_line1 := ui.rect_take_top(&line4_widget_r, 50)
 	scroll2_line1 = ui.rect_inset(
 		scroll2_line1,
-		ui.Inset{Top = 5, Bottom = 5, Left = 5, Right = 25},
+		ui.Inset{top = 5, bottom = 5, left = 5, right = 25},
 	)
 	ui.button(ctx, scroll2_line1, "Button 1")
 	scroll2_line2 := ui.rect_take_top(&line4_widget_r, 50)
 	scroll2_line2 = ui.rect_inset(
 		scroll2_line2,
-		ui.Inset{Top = 5, Bottom = 5, Left = 5, Right = 25},
+		ui.Inset{top = 5, bottom = 5, left = 5, right = 25},
 	)
 	ui.button(ctx, scroll2_line2, "Button 2")
 	scroll2_line3 := ui.rect_take_top(&line4_widget_r, 50)
 	scroll2_line3 = ui.rect_inset(
 		scroll2_line3,
-		ui.Inset{Top = 5, Bottom = 5, Left = 5, Right = 25},
+		ui.Inset{top = 5, bottom = 5, left = 5, right = 25},
 	)
 	ui.button(ctx, scroll2_line3, "Button 3")
 	ui.style_pop(ctx)
@@ -292,10 +292,10 @@ my_draw :: proc(ctx: ^ui.Context) {
 		case ui.Command_Sprite:
 			texture := textures[c.sprite.texture]
 			src := rl.Rectangle {
-				x      = c.sprite.uv_min.x * f32(texture.width),
-				y      = c.sprite.uv_min.y * f32(texture.height),
-				width  = (c.sprite.uv_max.x - c.sprite.uv_min.x) * f32(texture.width),
-				height = (c.sprite.uv_max.y - c.sprite.uv_min.y) * f32(texture.height),
+				x      = c.sprite.uv.x * f32(texture.width),
+				y      = c.sprite.uv.y * f32(texture.height),
+				width  = c.sprite.uv.w * f32(texture.width),
+				height = c.sprite.uv.h * f32(texture.height),
 			}
 			dst := rl.Rectangle {
 				x      = c.rect.x,
@@ -360,8 +360,7 @@ preload_sprites :: proc() -> ([dynamic]rl.Texture2D, map[Sprite_Type]ui.Sprite) 
 		append(&textures, rl_texture)
 		sprite_map[type] = ui.Sprite {
 			texture = ui.Texture_Handle(texture_idx),
-			uv_min  = {0, 0},
-			uv_max  = {1, 1},
+			uv      = {0, 0, 1, 1},
 			width   = ui_img.width,
 			height  = ui_img.height,
 		}

@@ -147,14 +147,19 @@ package exigent
 
 // 	// UV calculation check:
 // 	// origin is (1, 1) because of padding
-// 	// uv_min = (1 + 0.5) / 512 = 1.5 / 512
-// 	// uv_max = (1 + 30 - 0.5) / 512 = 30.5 / 512
+// 	// uv.x = (1 + 0.5) / 512 = 1.5 / 512
+// 	// uv.y = (1 + 0.5) / 512 = 1.5 / 512
+// 	// uv.w = (30.5 - 1.5) / 512 = 29 / 512
+// 	// uv.h = (30.5 - 1.5) / 512 = 29 / 512
 // 	inv := 1.0 / f32(512)
-// 	expected_min := [2]f32{1.5 * inv, 1.5 * inv}
-// 	expected_max := [2]f32{30.5 * inv, 30.5 * inv}
+// 	expected_uv := Rect {
+// 		x = 1.5 * inv,
+// 		y = 1.5 * inv,
+// 		w = 29.0 * inv,
+// 		h = 29.0 * inv,
+// 	}
 
-// 	testing.expect_value(t, sprite.uv_min, expected_min)
-// 	testing.expect_value(t, sprite.uv_max, expected_max)
+// 	testing.expect_value(t, sprite.uv, expected_uv)
 
 // 	// Test atlas reuse
 // 	sprite2, err2 := sprite_packer_add(&ab, img)

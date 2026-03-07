@@ -21,67 +21,67 @@ test_rect_inset :: proc(t: ^testing.T) {
 		{
 			desc = "positive top inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 10, Right = 0, Bottom = 0, Left = 0},
+			i = Inset{top = 10, right = 0, bottom = 0, left = 0},
 			expected = Rect{0, 10, 100, 90},
 		},
 		{
 			desc = "positive left inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 0, Right = 0, Bottom = 0, Left = 5},
+			i = Inset{top = 0, right = 0, bottom = 0, left = 5},
 			expected = Rect{5, 0, 95, 100},
 		},
 		{
 			desc = "positive right inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 0, Right = 3, Bottom = 0, Left = 0},
+			i = Inset{top = 0, right = 3, bottom = 0, left = 0},
 			expected = Rect{0, 0, 97, 100},
 		},
 		{
 			desc = "positive bottom inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 0, Right = 0, Bottom = 2, Left = 0},
+			i = Inset{top = 0, right = 0, bottom = 2, left = 0},
 			expected = Rect{0, 0, 100, 98},
 		},
 		{
 			desc = "negative top inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = -10, Right = 0, Bottom = 0, Left = 0},
+			i = Inset{top = -10, right = 0, bottom = 0, left = 0},
 			expected = Rect{0, -10, 100, 110},
 		},
 		{
 			desc = "negative left inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 0, Right = 0, Bottom = 0, Left = -5},
+			i = Inset{top = 0, right = 0, bottom = 0, left = -5},
 			expected = Rect{-5, 0, 105, 100},
 		},
 		{
 			desc = "negative right inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 0, Right = -3, Bottom = 0, Left = 0},
+			i = Inset{top = 0, right = -3, bottom = 0, left = 0},
 			expected = Rect{0, 0, 103, 100},
 		},
 		{
 			desc = "negative bottom inset",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 0, Right = 0, Bottom = -2, Left = 0},
+			i = Inset{top = 0, right = 0, bottom = -2, left = 0},
 			expected = Rect{0, 0, 100, 102},
 		},
 		{
 			desc = "positive all sides",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 1, Right = 2, Bottom = 3, Left = 4},
+			i = Inset{top = 1, right = 2, bottom = 3, left = 4},
 			expected = Rect{4, 1, 94, 96},
 		},
 		{
 			desc = "negative all sides",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = -1, Right = -2, Bottom = -3, Left = -4},
+			i = Inset{top = -1, right = -2, bottom = -3, left = -4},
 			expected = Rect{-4, -1, 106, 104},
 		},
 		{
 			desc = "mixed insets: positive top and left, negative right and bottom",
 			r = Rect{0, 0, 100, 100},
-			i = Inset{Top = 5, Left = 10, Right = -2, Bottom = -3},
+			i = Inset{top = 5, left = 10, right = -2, bottom = -3},
 			expected = Rect{10, 5, 92, 98},
 		},
 	}
@@ -652,4 +652,3 @@ test_rect_enclosing :: proc(t: ^testing.T) {
 		)
 	}
 }
-

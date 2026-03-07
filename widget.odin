@@ -257,7 +257,7 @@ label :: proc(
 	sub_id: int = 0,
 ) {
 	widget_begin(c, Widget_Type_LABEL, r, caller, sub_id)
-	text(c, txt, h_align, v_align)
+	text_aligned(c, txt, h_align, v_align)
 	widget_end(c)
 }
 

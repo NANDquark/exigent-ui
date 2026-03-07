@@ -73,25 +73,25 @@ rect_inset_even :: proc(r: Rect, i: f32) -> Rect {
 }
 
 Inset :: struct {
-	Top, Right, Bottom, Left: f32,
+	top, right, bottom, left: f32,
 }
 
 rect_inset_ex :: proc(r: Rect, i: Inset) -> Rect {
 	r := r
 
-	if i.Top != 0 {
-		r.y += i.Top
-		r.h -= i.Top
+	if i.top != 0 {
+		r.y += i.top
+		r.h -= i.top
 	}
-	if i.Right != 0 {
-		r.w -= i.Right
+	if i.right != 0 {
+		r.w -= i.right
 	}
-	if i.Bottom != 0 {
-		r.h -= i.Bottom
+	if i.bottom != 0 {
+		r.h -= i.bottom
 	}
-	if i.Left != 0 {
-		r.x += i.Left
-		r.w -= i.Left
+	if i.left != 0 {
+		r.x += i.left
+		r.w -= i.left
 	}
 
 	return r
@@ -223,4 +223,3 @@ rect_take_bot :: proc(r: ^Rect, pixels: f32) -> Rect {
 	}
 	return res
 }
-

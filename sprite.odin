@@ -7,8 +7,7 @@ import "core:mem"
 
 Sprite :: struct {
 	texture:       Texture_Handle,
-	uv_min:        [2]f32, // normalized to (0,1) inclusive across the whole texture
-	uv_max:        [2]f32, // normalized to (0,1) inclusive across the whole texture
+	uv:            Rect, // normalized to (0,1) across the whole texture
 	width, height: int, // size of the original image in pixels
 }
 
@@ -105,16 +104,20 @@ Texture_Handle :: distinct u64
 // 	// Here 0.5 is added or subtracted to target the center of the outside pixel
 // 	// of the new image to avoid texture bleeding or shimmering on the edges
 // 	// This combined with the min_padding added around should solve the problem.
-// 	uv_min := [2]f32{(f32(i_origin.x) + 0.5) * inv_w, (f32(i_origin.y) + 0.5) * inv_h}
-// 	uv_max := [2]f32 {
-// 		(f32(i_origin.x) + f32(i.width) - 0.5) * inv_w,
-// 		(f32(i_origin.y) + f32(i.height) - 0.5) * inv_h,
+// 	uv_x := (f32(i_origin.x) + 0.5) * inv_w
+// 	uv_y := (f32(i_origin.y) + 0.5) * inv_h
+// 	uv_w := (f32(i.width) - 1.0) * inv_w
+// 	uv_h := (f32(i.height) - 1.0) * inv_h
+// 	uv := Rect {
+// 		x = uv_x,
+// 		y = uv_y,
+// 		w = uv_w,
+// 		h = uv_h,
 // 	}
 
 // 	return Sprite {
 // 			atlas = target_atlas.handle,
-// 			uv_min = uv_min,
-// 			uv_max = uv_max,
+// 			uv = uv,
 // 			width = i.width,
 // 			height = i.height,
 // 		},
