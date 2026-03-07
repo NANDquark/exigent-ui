@@ -1,16 +1,17 @@
 package exigent
-import "core:container/bit_array"
+
 import "core:mem"
 import "core:unicode/utf8"
 
 Input :: struct {
-	mouse_pos:        [2]f32,
-	scroll_delta:     f32,
-	key_down:         bit_array.Bit_Array,
-	mouse_down:       bit_set[Mouse_Button],
-	frame_events:     [dynamic]Input_Event, // memory persists but is cleared each frame
-	event_handle_gen: uint,
-	allocator:        mem.Allocator,
+	mouse_pos:          [2]f32,
+	scroll_delta:       f32,
+	source_user_data:   rawptr,
+	is_key_down_proc:   proc(user_data: rawptr, key: Key) -> bool,
+	is_mouse_down_proc: proc(user_data: rawptr, btn: Mouse_Button) -> bool,
+	frame_events:       [dynamic]Input_Event, // memory persists but is cleared each frame
+	event_handle_gen:   uint,
+	allocator:          mem.Allocator,
 }
 
 Mouse_Button :: enum {
@@ -22,6 +23,8 @@ Mouse_Button :: enum {
 Input_Event :: union {
 	Key_Event,
 	Mouse_Event,
+	Char_Event,
+	Focus_Event,
 }
 
 Key_Event :: struct {
@@ -46,6 +49,16 @@ Mouse_Event_Type :: enum {
 	Released,
 }
 
+Char_Event :: struct {
+	c:       rune,
+	handled: bool,
+}
+
+Focus_Event :: struct {
+	focused: bool,
+	handled: bool,
+}
+
 MAX_EVENTS_PER_FRAME :: 64
 
 @(private)
@@ -56,7 +69,6 @@ input_create :: proc(
 	context.allocator = allocator
 	i := new(Input)
 	i.allocator = allocator
-	bit_array.init(&i.key_down, int(max(Key)) + 1, 0, allocator)
 	i.frame_events = make([dynamic]Input_Event, 0, max_events)
 	return i
 }
@@ -64,7 +76,6 @@ input_create :: proc(
 @(private)
 input_destroy :: proc(i: ^Input) {
 	context.allocator = i.allocator
-	bit_array.destroy(&i.key_down)
 	delete(i.frame_events)
 	free(i)
 }
@@ -76,30 +87,55 @@ input_swap :: proc(c: ^Context) {
 
 	// copy persistent values to curr frame
 	c.input_curr.mouse_pos = c.input_prev.mouse_pos
-	copy(c.input_curr.key_down.bits[:], c.input_prev.key_down.bits[:])
-	c.input_curr.mouse_down = c.input_prev.mouse_down
+	c.input_curr.source_user_data = c.input_prev.source_user_data
+	c.input_curr.is_key_down_proc = c.input_prev.is_key_down_proc
+	c.input_curr.is_mouse_down_proc = c.input_prev.is_mouse_down_proc
 
 	// clear frame-specific values
 	clear(&c.input_curr.frame_events)
 	c.input_curr.scroll_delta = 0
 }
 
-input_key_down :: proc(c: ^Context, key: Key) {
-	k := int(key)
-	bit_array.set(&c.input_curr.key_down, k)
-	if !bit_array.get(&c.input_prev.key_down, k) {
-		for e in c.input_curr.frame_events {
-			#partial switch ke in e {
-			case Key_Event:
-				if !ke.handled && ke.key == key && ke.type == .Pressed do return
+input_feed_external :: proc(
+	c: ^Context,
+	mouse_pos: [2]f32,
+	scroll_delta: f32,
+	user_data: rawptr,
+	is_key_down: proc(user_data: rawptr, key: Key) -> bool,
+	is_mouse_down: proc(user_data: rawptr, btn: Mouse_Button) -> bool,
+	events: []Input_Event,
+) {
+	c.input_curr.mouse_pos = mouse_pos
+	c.input_curr.scroll_delta = scroll_delta
+	c.input_curr.source_user_data = user_data
+	c.input_curr.is_key_down_proc = is_key_down
+	c.input_curr.is_mouse_down_proc = is_mouse_down
+	clear(&c.input_curr.frame_events)
+
+	for e in events {
+		switch ev in e {
+		case Key_Event:
+			append(&c.input_curr.frame_events, Key_Event{key = ev.key, type = ev.type, handled = false})
+		case Mouse_Event:
+			append(
+				&c.input_curr.frame_events,
+					Mouse_Event{button = ev.button, type = ev.type, handled = false},
+				)
+		case Char_Event:
+			input_apply_char(c, ev.c)
+			append(&c.input_curr.frame_events, Char_Event{c = ev.c, handled = false})
+		case Focus_Event:
+			if !ev.focused {
+				c.active_text_input = nil
 			}
+			append(&c.input_curr.frame_events, Focus_Event{focused = ev.focused, handled = false})
 		}
-		append(&c.input_curr.frame_events, Key_Event{key = key, type = .Pressed})
 	}
 }
 
 input_is_key_down :: proc(c: ^Context, key: Key) -> bool {
-	return bit_array.get(&c.input_curr.key_down, int(key))
+	if c.input_curr.is_key_down_proc == nil do return false
+	return c.input_curr.is_key_down_proc(c.input_curr.source_user_data, key)
 }
 
 // Check whether an Input_Event happened this frame. Set that event as handled
@@ -151,29 +187,14 @@ input_check_mouse_event :: proc(
 	return found
 }
 
-// Whether the key was pressed down this exact frame
+// Whether the key was pressed down this exact frame.
 input_is_key_pressed :: proc(c: ^Context, key: Key, handle_event := true) -> (pressed: bool) {
 	return input_check_event(c, key, Key_Event_Type.Pressed, handle_event)
 }
 
-input_key_up :: proc(c: ^Context, key: Key) {
-	bit_array.unset(&c.input_curr.key_down, int(key))
-	for e in c.input_curr.frame_events {
-		#partial switch ke in e {
-		case Key_Event:
-			if !ke.handled && ke.key == key && ke.type == .Released do return
-		}
-	}
-	append(&c.input_curr.frame_events, Key_Event{key = key, type = .Released})
-}
-
-// Whether the key was released this exact frame
+// Whether the key was released this exact frame.
 input_is_key_released :: proc(c: ^Context, key: Key, handle_event := true) -> bool {
 	return input_check_event(c, key, Key_Event_Type.Released, handle_event)
-}
-
-input_mouse_pos :: proc(c: ^Context, pos: [2]f32) {
-	c.input_curr.mouse_pos = pos
 }
 
 input_get_mouse_pos :: proc(c: ^Context) -> [2]f32 {
@@ -184,35 +205,12 @@ input_get_mouse_delta :: proc(c: ^Context) -> [2]f32 {
 	return c.input_curr.mouse_pos - c.input_prev.mouse_pos
 }
 
-input_mouse_down :: proc(c: ^Context, btn: Mouse_Button) {
-	c.input_curr.mouse_down += {btn}
-	if btn not_in c.input_prev.mouse_down {
-		for e in c.input_curr.frame_events {
-			#partial switch me in e {
-			case Mouse_Event:
-				if !me.handled && me.button == btn && me.type == .Pressed do return
-			}
-		}
-		append(&c.input_curr.frame_events, Mouse_Event{button = btn, type = .Pressed})
-	}
-}
-
-input_mouse_up :: proc(c: ^Context, btn: Mouse_Button) {
-	c.input_curr.mouse_down -= {btn}
-	for e in c.input_curr.frame_events {
-		#partial switch me in e {
-		case Mouse_Event:
-			if !me.handled && me.button == btn && me.type == .Released do return
-		}
-	}
-	append(&c.input_curr.frame_events, Mouse_Event{button = btn, type = .Released})
-}
-
 input_is_mouse_down :: proc(c: ^Context, btn: Mouse_Button) -> bool {
-	return btn in c.input_curr.mouse_down
+	if c.input_curr.is_mouse_down_proc == nil do return false
+	return c.input_curr.is_mouse_down_proc(c.input_curr.source_user_data, btn)
 }
 
-// Whether the mouse button was pressed down this exact frame
+// Whether the mouse button was pressed down this exact frame.
 input_is_mouse_pressed :: proc(c: ^Context, btn: Mouse_Button, handle_event := true) -> bool {
 	return input_check_event(c, btn, Mouse_Event_Type.Pressed, handle_event)
 }
@@ -221,32 +219,35 @@ input_is_mouse_released :: proc(c: ^Context, btn: Mouse_Button, handle_event := 
 	return input_check_event(c, btn, Mouse_Event_Type.Released, handle_event)
 }
 
-input_scroll :: proc(c: ^Context, delta: f32) {
-	if delta == 0 do return
-	c.input_curr.scroll_delta = delta
-}
-
-// scroll amount this frame in scroll notches
+// Scroll amount this frame in scroll notches.
 input_get_scroll :: proc(c: ^Context) -> f32 {
 	return c.input_curr.scroll_delta
 }
 
 Key_Down_Iterator :: struct {
-	iter: bit_array.Bit_Array_Iterator,
+	c:        ^Context,
+	next_key: int,
 }
 
 input_key_down_iterator :: proc(c: ^Context) -> Key_Down_Iterator {
-	return Key_Down_Iterator{iter = bit_array.make_iterator(&c.input_curr.key_down)}
+	return Key_Down_Iterator{c = c, next_key = 0}
 }
 
-// Returns false when done
+// Returns false when done.
 input_key_down_iterator_next :: proc(it: ^Key_Down_Iterator) -> (Key, bool) {
-	idx, ok := bit_array.iterate_by_set(&it.iter)
-	if !ok do return .None, false
-	return Key(idx), true
+	max_key := int(max(Key))
+	for it.next_key <= max_key {
+		k := Key(it.next_key)
+		it.next_key += 1
+		if input_is_key_down(it.c, k) {
+			return k, true
+		}
+	}
+	return .None, false
 }
 
-input_char :: proc(c: ^Context, r: rune) {
+@(private)
+input_apply_char :: proc(c: ^Context, r: rune) {
 	if c.active_text_input == nil do return
 
 	bytes, len := utf8.encode_rune(r)
@@ -291,6 +292,10 @@ input_next_unhandled_event :: proc(
 			handled = e.handled
 		case Mouse_Event:
 			handled = e.handled
+		case Char_Event:
+			handled = e.handled
+		case Focus_Event:
+			handled = e.handled
 		}
 
 		if !handled {
@@ -301,7 +306,7 @@ input_next_unhandled_event :: proc(
 	return {}, {}, false
 }
 
-// Set an Input_Event which happened this frame as handled
+// Set an Input_Event which happened this frame as handled.
 input_handle_event :: proc(c: ^Context, to_handle: Input_Event_Handle) {
 	// TODO should we log a warning here that invalid handles are being used?
 	if to_handle.gen != c.input_curr.event_handle_gen do return
@@ -311,6 +316,10 @@ input_handle_event :: proc(c: ^Context, to_handle: Input_Event_Handle) {
 	case Key_Event:
 		e.handled = true
 	case Mouse_Event:
+		e.handled = true
+	case Char_Event:
+		e.handled = true
+	case Focus_Event:
 		e.handled = true
 	}
 }

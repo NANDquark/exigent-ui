@@ -2,15 +2,127 @@ package exigent
 
 import "core:testing"
 
+Test_Input_State :: struct {
+	key_down:   map[Key]bool,
+	mouse_down: bit_set[Mouse_Button],
+}
+
 fixture_context_create :: proc() -> ^Context {
 	c := new(Context)
 	init(c)
+	state := new(Test_Input_State)
+	state.key_down = make(map[Key]bool)
+	c.input_curr.source_user_data = rawptr(state)
+	c.input_curr.is_key_down_proc = test_is_key_down
+	c.input_curr.is_mouse_down_proc = test_is_mouse_down
+	c.input_prev.source_user_data = rawptr(state)
+	c.input_prev.is_key_down_proc = test_is_key_down
+	c.input_prev.is_mouse_down_proc = test_is_mouse_down
 	return c
 }
 
 fixture_context_delete :: proc(c: ^Context) {
+	state := test_input_state(c)
 	destroy(c)
+	delete(state.key_down)
+	free(state)
 	free(c)
+}
+
+@(private)
+test_input_state :: proc(c: ^Context) -> ^Test_Input_State {
+	return cast(^Test_Input_State)c.input_curr.source_user_data
+}
+
+@(private)
+test_is_key_down :: proc(user_data: rawptr, key: Key) -> bool {
+	state := cast(^Test_Input_State)user_data
+	if state == nil do return false
+	return state.key_down[key]
+}
+
+@(private)
+test_is_mouse_down :: proc(user_data: rawptr, btn: Mouse_Button) -> bool {
+	state := cast(^Test_Input_State)user_data
+	if state == nil do return false
+	return btn in state.mouse_down
+}
+
+test_input_key_down :: proc(c: ^Context, key: Key) {
+	state := test_input_state(c)
+	has_handled_pressed := false
+	for e in c.input_curr.frame_events {
+		#partial switch ke in e {
+		case Key_Event:
+			if ke.key == key && ke.type == .Pressed {
+				if !ke.handled do return
+				has_handled_pressed = true
+			}
+		}
+	}
+
+	was_down := state.key_down[key]
+	state.key_down[key] = true
+	if !was_down || has_handled_pressed {
+		append(&c.input_curr.frame_events, Key_Event{key = key, type = .Pressed})
+	}
+}
+
+test_input_key_up :: proc(c: ^Context, key: Key) {
+	state := test_input_state(c)
+	state.key_down[key] = false
+	for e in c.input_curr.frame_events {
+		#partial switch ke in e {
+		case Key_Event:
+			if !ke.handled && ke.key == key && ke.type == .Released do return
+		}
+	}
+	append(&c.input_curr.frame_events, Key_Event{key = key, type = .Released})
+}
+
+test_input_mouse_down :: proc(c: ^Context, btn: Mouse_Button) {
+	state := test_input_state(c)
+	has_handled_pressed := false
+	for e in c.input_curr.frame_events {
+		#partial switch me in e {
+		case Mouse_Event:
+			if me.button == btn && me.type == .Pressed {
+				if !me.handled do return
+				has_handled_pressed = true
+			}
+		}
+	}
+
+	was_down := btn in state.mouse_down
+	state.mouse_down += {btn}
+	if !was_down || has_handled_pressed {
+		append(&c.input_curr.frame_events, Mouse_Event{button = btn, type = .Pressed})
+	}
+}
+
+test_input_mouse_up :: proc(c: ^Context, btn: Mouse_Button) {
+	state := test_input_state(c)
+	state.mouse_down -= {btn}
+	for e in c.input_curr.frame_events {
+		#partial switch me in e {
+		case Mouse_Event:
+			if !me.handled && me.button == btn && me.type == .Released do return
+		}
+	}
+	append(&c.input_curr.frame_events, Mouse_Event{button = btn, type = .Released})
+}
+
+test_input_mouse_pos :: proc(c: ^Context, pos: [2]f32) {
+	c.input_curr.mouse_pos = pos
+}
+
+test_input_scroll :: proc(c: ^Context, delta: f32) {
+	if delta == 0 do return
+	c.input_curr.scroll_delta = delta
+}
+
+test_input_char :: proc(c: ^Context, r: rune) {
+	input_apply_char(c, r)
 }
 
 @(test)
@@ -18,7 +130,7 @@ test_key_down_sets_down_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	testing.expect(t, input_is_key_down(c, .A), "Key should be down after input_key_down")
 }
 
@@ -27,7 +139,7 @@ test_key_down_sets_pressed_first_frame :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	testing.expect(t, input_is_key_pressed(c, .A), "Key should be pressed on first frame")
 }
 
@@ -36,9 +148,9 @@ test_key_down_not_pressed_if_already_down :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	input_swap(c) // Simulate next frame
-	input_key_down(c, .A) // Press again
+	test_input_key_down(c, .A) // Press again
 	testing.expect(t, !input_is_key_pressed(c, .A), "Key should not be pressed if already down")
 	testing.expect(t, input_is_key_down(c, .A), "Key should still be down")
 }
@@ -48,8 +160,8 @@ test_key_up_clears_down_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_key_up(c, .A)
+	test_input_key_down(c, .A)
+	test_input_key_up(c, .A)
 	testing.expect(t, !input_is_key_down(c, .A), "Key should not be down after input_key_up")
 }
 
@@ -58,8 +170,8 @@ test_key_up_sets_released_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_key_up(c, .A)
+	test_input_key_down(c, .A)
+	test_input_key_up(c, .A)
 	testing.expect(t, input_is_key_released(c, .A), "Key should be released after input_key_up")
 }
 
@@ -68,7 +180,7 @@ test_mouse_down_sets_down_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 	testing.expect(t, input_is_mouse_down(c, .Left), "Mouse button should be down")
 }
 
@@ -77,7 +189,7 @@ test_mouse_down_sets_pressed_first_frame :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 	testing.expect(
 		t,
 		input_is_mouse_pressed(c, .Left),
@@ -90,9 +202,9 @@ test_mouse_down_not_pressed_if_already_down :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 	input_swap(c)
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 	testing.expect(
 		t,
 		!input_is_mouse_pressed(c, .Left),
@@ -106,8 +218,8 @@ test_mouse_up_clears_down_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
-	input_mouse_up(c, .Left)
+	test_input_mouse_down(c, .Left)
+	test_input_mouse_up(c, .Left)
 	testing.expect(t, !input_is_mouse_down(c, .Left), "Mouse button should not be down after up")
 }
 
@@ -116,8 +228,8 @@ test_mouse_up_sets_released_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
-	input_mouse_up(c, .Left)
+	test_input_mouse_down(c, .Left)
+	test_input_mouse_up(c, .Left)
 	testing.expect(
 		t,
 		input_is_mouse_released(c, .Left),
@@ -132,9 +244,9 @@ test_all_mouse_buttons :: proc(t: ^testing.T) {
 
 	buttons := []Mouse_Button{.Left, .Right, .Middle}
 	for btn in buttons {
-		input_mouse_down(c, btn)
+		test_input_mouse_down(c, btn)
 		testing.expect(t, input_is_mouse_down(c, btn))
-		input_mouse_up(c, btn)
+		test_input_mouse_up(c, btn)
 		testing.expect(t, !input_is_mouse_down(c, btn))
 		testing.expect(t, input_is_mouse_released(c, btn))
 	}
@@ -146,7 +258,7 @@ test_mouse_pos_sets_position :: proc(t: ^testing.T) {
 	defer fixture_context_delete(c)
 
 	pos := [2]f32{100, 200}
-	input_mouse_pos(c, pos)
+	test_input_mouse_pos(c, pos)
 	testing.expect(t, input_get_mouse_pos(c) == pos, "Mouse position should be set")
 }
 
@@ -156,7 +268,7 @@ test_mouse_pos_persists_across_frames :: proc(t: ^testing.T) {
 	defer fixture_context_delete(c)
 
 	pos := [2]f32{100, 200}
-	input_mouse_pos(c, pos)
+	test_input_mouse_pos(c, pos)
 	input_swap(c)
 	testing.expect(t, input_get_mouse_pos(c) == pos, "Mouse position should persist across swap")
 }
@@ -166,7 +278,7 @@ test_swap_preserves_key_down_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	testing.expect(t, input_is_key_down(c, .A), "Key should be down before swap")
 
 	input_swap(c)
@@ -178,7 +290,7 @@ test_swap_clears_key_pressed_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	testing.expect(t, input_is_key_pressed(c, .A), "Key should be pressed before swap")
 
 	input_swap(c)
@@ -190,8 +302,8 @@ test_swap_clears_key_released_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_key_up(c, .A)
+	test_input_key_down(c, .A)
+	test_input_key_up(c, .A)
 	testing.expect(t, input_is_key_released(c, .A), "Key should be released before swap")
 
 	input_swap(c)
@@ -203,7 +315,7 @@ test_swap_preserves_mouse_down_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 	testing.expect(t, input_is_mouse_down(c, .Left), "Mouse should be down before swap")
 
 	input_swap(c)
@@ -215,7 +327,7 @@ test_swap_clears_mouse_pressed_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 	testing.expect(t, input_is_mouse_pressed(c, .Left), "Mouse should be pressed before swap")
 
 	input_swap(c)
@@ -227,8 +339,8 @@ test_swap_clears_mouse_released_state :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
-	input_mouse_up(c, .Left)
+	test_input_mouse_down(c, .Left)
+	test_input_mouse_up(c, .Left)
 	testing.expect(t, input_is_mouse_released(c, .Left), "Mouse should be released before swap")
 
 	input_swap(c)
@@ -245,7 +357,7 @@ test_swap_preserves_mouse_pos :: proc(t: ^testing.T) {
 	defer fixture_context_delete(c)
 
 	pos := [2]f32{10, 20}
-	input_mouse_pos(c, pos)
+	test_input_mouse_pos(c, pos)
 	input_swap(c)
 	testing.expect(t, input_get_mouse_pos(c) == pos)
 }
@@ -265,7 +377,7 @@ test_iterator_finds_single_key :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	it := input_key_down_iterator(c)
 	key, ok := input_key_down_iterator_next(&it)
 	testing.expect(t, ok, "Iterator should find a key")
@@ -279,9 +391,9 @@ test_iterator_finds_multiple_keys :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_key_down(c, .B)
-	input_key_down(c, .C)
+	test_input_key_down(c, .A)
+	test_input_key_down(c, .B)
+	test_input_key_down(c, .C)
 
 	it := input_key_down_iterator(c)
 	found_keys := make([dynamic]Key, 0, 3, context.temp_allocator)
@@ -309,9 +421,9 @@ test_iterator_order :: proc(t: ^testing.T) {
 	defer fixture_context_delete(c)
 
 	// Bit array iterator order depends on enum values
-	input_key_down(c, .C)
-	input_key_down(c, .A)
-	input_key_down(c, .B)
+	test_input_key_down(c, .C)
+	test_input_key_down(c, .A)
+	test_input_key_down(c, .B)
 
 	it := input_key_down_iterator(c)
 	k1, _ := input_key_down_iterator_next(&it)
@@ -329,7 +441,7 @@ test_iterator_exhausts :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	it := input_key_down_iterator(c)
 	input_key_down_iterator_next(&it)
 	_, ok := input_key_down_iterator_next(&it)
@@ -342,20 +454,20 @@ test_key_press_and_hold_sequence :: proc(t: ^testing.T) {
 	defer fixture_context_delete(c)
 
 	// Frame 1: Press
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	testing.expect(t, input_is_key_pressed(c, .A), "Frame 1: pressed=true")
 	testing.expect(t, input_is_key_down(c, .A), "Frame 1: down=true")
 	testing.expect(t, !input_is_key_released(c, .A), "Frame 1: released=false")
 
 	// Frame 2: Hold
 	input_swap(c)
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	testing.expect(t, !input_is_key_pressed(c, .A), "Frame 2: pressed=false")
 	testing.expect(t, input_is_key_down(c, .A), "Frame 2: down=true")
 	testing.expect(t, !input_is_key_released(c, .A), "Frame 2: released=false")
 
 	// Frame 3: Release
-	input_key_up(c, .A)
+	test_input_key_up(c, .A)
 	testing.expect(t, !input_is_key_pressed(c, .A), "Frame 3: pressed=false")
 	testing.expect(t, !input_is_key_down(c, .A), "Frame 3: down=false")
 	testing.expect(t, input_is_key_released(c, .A), "Frame 3: released=true")
@@ -367,8 +479,8 @@ test_key_rapid_press_release :: proc(t: ^testing.T) {
 	defer fixture_context_delete(c)
 
 	// Press and release in same frame
-	input_key_down(c, .A)
-	input_key_up(c, .A)
+	test_input_key_down(c, .A)
+	test_input_key_up(c, .A)
 	testing.expect(
 		t,
 		input_is_key_pressed(c, .A),
@@ -384,7 +496,7 @@ test_release_unpressed_key :: proc(t: ^testing.T) {
 	defer fixture_context_delete(c)
 
 	// Release a key that was never pressed
-	input_key_up(c, .A)
+	test_input_key_up(c, .A)
 	testing.expect(t, !input_is_key_down(c, .A), "Unpressed key should not be down")
 	testing.expect(t, input_is_key_released(c, .A), "Unpressed key should be released")
 	testing.expect(t, !input_is_key_pressed(c, .A), "Unpressed key should not be pressed")
@@ -395,11 +507,11 @@ test_double_press_same_key :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	testing.expect(t, input_is_key_pressed(c, .A), "First press should set pressed")
 	testing.expect(t, input_is_key_down(c, .A), "First press should set down")
 
-	input_key_down(c, .A) // Press again
+	test_input_key_down(c, .A) // Press again
 	testing.expect(
 		t,
 		input_is_key_pressed(c, .A),
@@ -413,11 +525,11 @@ test_double_release_same_key :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_key_up(c, .A)
+	test_input_key_down(c, .A)
+	test_input_key_up(c, .A)
 	testing.expect(t, input_is_key_released(c, .A), "First release should set released")
 
-	input_key_up(c, .A) // Release again
+	test_input_key_up(c, .A) // Release again
 	testing.expect(t, !input_is_key_down(c, .A), "Second release should keep not down")
 	testing.expect(t, input_is_key_released(c, .A), "Second release should set released again")
 }
@@ -427,7 +539,7 @@ test_key_pressed_handle_event_false :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 
 	// Check without handling
 	testing.expect(t, input_is_key_pressed(c, .A, false), "Should be pressed")
@@ -443,8 +555,8 @@ test_key_released_handle_event_false :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_key_up(c, .A)
+	test_input_key_down(c, .A)
+	test_input_key_up(c, .A)
 
 	// Check without handling
 	testing.expect(t, input_is_key_released(c, .A, false), "Should be released")
@@ -460,7 +572,7 @@ test_mouse_pressed_handle_event_false :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 
 	// Check without handling
 	testing.expect(t, input_is_mouse_pressed(c, .Left, false), "Should be pressed")
@@ -476,8 +588,8 @@ test_mouse_released_handle_event_false :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
-	input_mouse_up(c, .Left)
+	test_input_mouse_down(c, .Left)
+	test_input_mouse_up(c, .Left)
 
 	// Check without handling
 	testing.expect(t, input_is_mouse_released(c, .Left, false), "Should be released")
@@ -493,8 +605,8 @@ test_frame_event_iterator_basic :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_mouse_down(c, .Left)
+	test_input_key_down(c, .A)
+	test_input_mouse_down(c, .Left)
 
 	fei := input_events_make_iter(c)
 
@@ -525,7 +637,7 @@ test_handle_event_marks_as_handled :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	fei := input_events_make_iter(c)
 	handle, _, ok := input_next_unhandled_event(&fei)
 	testing.expect(t, ok)
@@ -545,8 +657,8 @@ test_iterator_skips_handled_events :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
-	input_key_down(c, .B)
+	test_input_key_down(c, .A)
+	test_input_key_down(c, .B)
 
 	// Handle .A using the high-level API
 	input_is_key_pressed(c, .A)
@@ -571,7 +683,7 @@ test_handle_event_invalid_generation :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	fei := input_events_make_iter(c)
 	handle, _, ok := input_next_unhandled_event(&fei)
 	testing.expect(t, ok)
@@ -590,7 +702,7 @@ test_handle_event_out_of_bounds :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_key_down(c, .A)
+	test_input_key_down(c, .A)
 	handle := Input_Event_Handle {
 		gen = c.input_curr.event_handle_gen,
 		idx = 999,
@@ -604,7 +716,7 @@ test_handle_mouse_event_marks_as_handled :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	input_mouse_down(c, .Left)
+	test_input_mouse_down(c, .Left)
 	fei := input_events_make_iter(c)
 	handle, _, ok := input_next_unhandled_event(&fei)
 	testing.expect(t, ok)

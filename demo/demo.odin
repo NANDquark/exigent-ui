@@ -82,53 +82,81 @@ main :: proc() {
 input :: proc(ctx: ^ui.Context) {
 	prof_frame_part()
 
-	// Input - Check for released keys
+	events := make([dynamic]ui.Input_Event, 0, 16, context.temp_allocator)
+
+	// Input - Check for released keys.
 	it := ui.input_key_down_iterator(ctx)
 	for key in ui.input_key_down_iterator_next(&it) {
 		rl_key := ui_to_rl_key(key)
 		if rl_key != .KEY_NULL && rl.IsKeyReleased(rl_key) {
-			ui.input_key_up(ctx, key)
+			append(&events, ui.Key_Event{key = key, type = .Released})
 		}
 	}
 
-	// Input - Get all down keys
+	// Input - Get all pressed keys this frame.
 	for {
 		rl_key := rl.GetKeyPressed()
 		if rl_key == .KEY_NULL do break
 		ui_key := rl_to_ui_key(rl_key)
 		if ui_key != .None {
-			ui.input_key_down(ctx, ui_key)
+			append(&events, ui.Key_Event{key = ui_key, type = .Pressed})
 		}
 	}
 
-	// Input - text
+	// Input - text.
 	for {
 		r := rl.GetCharPressed()
 		if r == 0 do break
-		ui.input_char(ctx, r)
+		append(&events, ui.Char_Event{c = r})
 	}
 
-	// Input - Mouse
-	ui.input_mouse_pos(ctx, rl.GetMousePosition())
-	ui.input_scroll(ctx, rl.GetMouseWheelMove())
-	if rl.IsMouseButtonDown(.LEFT) {
-		ui.input_mouse_down(ctx, .Left)
+	// Input - Mouse edge events.
+	if rl.IsMouseButtonPressed(.LEFT) {
+		append(&events, ui.Mouse_Event{button = .Left, type = .Pressed})
 	}
 	if rl.IsMouseButtonReleased(.LEFT) {
-		ui.input_mouse_up(ctx, .Left)
+		append(&events, ui.Mouse_Event{button = .Left, type = .Released})
 	}
-	if rl.IsMouseButtonDown(.RIGHT) {
-		ui.input_mouse_down(ctx, .Right)
+	if rl.IsMouseButtonPressed(.RIGHT) {
+		append(&events, ui.Mouse_Event{button = .Right, type = .Pressed})
 	}
 	if rl.IsMouseButtonReleased(.RIGHT) {
-		ui.input_mouse_up(ctx, .Right)
+		append(&events, ui.Mouse_Event{button = .Right, type = .Released})
 	}
-	if rl.IsMouseButtonDown(.MIDDLE) {
-		ui.input_mouse_down(ctx, .Middle)
+	if rl.IsMouseButtonPressed(.MIDDLE) {
+		append(&events, ui.Mouse_Event{button = .Middle, type = .Pressed})
 	}
 	if rl.IsMouseButtonReleased(.MIDDLE) {
-		ui.input_mouse_up(ctx, .Middle)
+		append(&events, ui.Mouse_Event{button = .Middle, type = .Released})
 	}
+
+	ui.input_feed_external(
+		ctx,
+		rl.GetMousePosition(),
+		rl.GetMouseWheelMove(),
+		nil,
+		demo_input_is_key_down,
+		demo_input_is_mouse_down,
+		events[:],
+	)
+}
+
+demo_input_is_key_down :: proc(user_data: rawptr, key: ui.Key) -> bool {
+	rl_key := ui_to_rl_key(key)
+	if rl_key == .KEY_NULL do return false
+	return rl.IsKeyDown(rl_key)
+}
+
+demo_input_is_mouse_down :: proc(user_data: rawptr, button: ui.Mouse_Button) -> bool {
+	switch button {
+	case .Left:
+		return rl.IsMouseButtonDown(.LEFT)
+	case .Right:
+		return rl.IsMouseButtonDown(.RIGHT)
+	case .Middle:
+		return rl.IsMouseButtonDown(.MIDDLE)
+	}
+	return false
 }
 
 update :: proc(ctx: ^ui.Context) {
