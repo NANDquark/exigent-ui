@@ -53,8 +53,14 @@ destroy :: proc(c: ^Context) {
 }
 
 is_pointer_captured :: proc(c: ^Context) -> bool {
-	_, ok := c.hovered_widget_id.?
-	return ok
+	hovered_widget_id, ok := c.hovered_widget_id.?
+	if !ok {
+		return false
+	}
+	if c.widget_root != nil && hovered_widget_id == c.widget_root.id {
+		return false
+	}
+	return true
 }
 
 is_keyboard_captured :: proc(c: ^Context) -> bool {

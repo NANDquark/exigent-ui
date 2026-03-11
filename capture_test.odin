@@ -11,13 +11,31 @@ test_is_pointer_captured_false_by_default :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_is_pointer_captured_true_when_hovered_widget_exists :: proc(t: ^testing.T) {
+test_is_pointer_captured_false_for_root_hover :: proc(t: ^testing.T) {
 	c := fixture_context_create()
 	defer fixture_context_delete(c)
 
-	c.hovered_widget_id = Widget_ID(1)
+	root := new(Widget)
+	defer free(root)
+	root.id = Widget_ID(1)
+	c.widget_root = root
+	c.hovered_widget_id = root.id
 
-	testing.expect(t, is_pointer_captured(c), "Pointer should be captured when a widget is hovered")
+	testing.expect(t, !is_pointer_captured(c), "Root hover should not count as pointer capture")
+}
+
+@(test)
+test_is_pointer_captured_true_when_non_root_widget_hovered :: proc(t: ^testing.T) {
+	c := fixture_context_create()
+	defer fixture_context_delete(c)
+
+	root := new(Widget)
+	defer free(root)
+	root.id = Widget_ID(1)
+	c.widget_root = root
+	c.hovered_widget_id = Widget_ID(2)
+
+	testing.expect(t, is_pointer_captured(c), "Pointer should be captured when a non-root widget is hovered")
 }
 
 @(test)
