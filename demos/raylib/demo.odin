@@ -1,6 +1,6 @@
 package demo
 
-import ui ".."
+import ui "../.."
 import "base:runtime"
 import "core:fmt"
 import "core:image"
@@ -417,12 +417,12 @@ preload_sprites :: proc() -> ([dynamic]rl.Texture2D, map[Sprite_Type]ui.Sprite) 
 	textures := make([dynamic]rl.Texture2D)
 
 	icons := map[Sprite_Type]string{}
-	icons[.Alert_Icon] = "demo/res/icons/symbol alert.png"
-	icons[.Clock_Icon] = "demo/res/icons/object clock time.png"
-	icons[.Charts_Icon] = "demo/res/icons/object charts.png"
-	icons[.Sun_Icon] = "demo/res/icons/object sun.png"
-	icons[.Wrench_Icon] = "demo/res/icons/object wrench.png"
-	icons[.Crop_Icon] = "demo/res/icons/symbol crop resize.png"
+	icons[.Alert_Icon] = "demos/raylib/res/icons/symbol alert.png"
+	icons[.Clock_Icon] = "demos/raylib/res/icons/object clock time.png"
+	icons[.Charts_Icon] = "demos/raylib/res/icons/object charts.png"
+	icons[.Sun_Icon] = "demos/raylib/res/icons/object sun.png"
+	icons[.Wrench_Icon] = "demos/raylib/res/icons/object wrench.png"
+	icons[.Crop_Icon] = "demos/raylib/res/icons/symbol crop resize.png"
 
 	for type, fp in icons {
 		img, load_err := png.load_from_file(fp, png.Options{})

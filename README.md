@@ -38,3 +38,44 @@ The name `exigent` means "requiring immediate action".
 ![UI Sample](docs/ui-sample_2026-01-15_2238.png)
 
 This sample contains all the available widgets so far.
+
+## Karl2D adapter
+
+This repo includes an optional `karl2d_exigent` package that renders Exigent
+commands through [Karl2D](https://github.com/karl-zylinski/karl2d). Core
+Exigent does not import Karl2D; only the adapter and `demos/karl2d` do.
+
+For local development, Karl2D is checked out as a git submodule under `lib/`:
+
+```sh
+git submodule update --init --recursive
+```
+
+The adapter uses collection imports so downstream projects can point `karl2d`
+at their own submodule and avoid duplicate Karl2D package identities:
+
+```odin
+import ui "exigent:."
+import k2 "karl2d:."
+import kx "karl2d_exigent:."
+```
+
+Run the Karl2D demo from the repo root:
+
+```sh
+./demos/karl2d/run.sh
+```
+
+For a downstream project, use the same collection names but point them at that
+project's checkouts:
+
+```sh
+odin run . \
+	-collection:exigent=/path/to/exigent \
+	-collection:karl2d=/path/to/project/lib/karl2d \
+	-collection:karl2d_exigent=/path/to/exigent/karl2d_exigent
+```
+
+Karl2D currently exposes key and mouse events, but not dedicated text-input
+character events. The adapter feeds key/mouse events directly and synthesizes
+basic ASCII character events from key presses for Exigent text inputs.
