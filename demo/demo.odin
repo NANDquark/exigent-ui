@@ -6,7 +6,6 @@ import "core:fmt"
 import "core:image"
 import "core:image/png"
 import "core:log"
-import "core:math"
 import "core:strings"
 import rl "vendor:raylib"
 
@@ -24,6 +23,10 @@ state := State{}
 textures: [dynamic]rl.Texture2D
 sprite_map: map[Sprite_Type]ui.Sprite
 
+TEXT_STYLE_DEFAULT :: ui.Text_Style_Type("default")
+TEXT_STYLE_TITLE :: ui.Text_Style_Type("title")
+TEXT_STYLE_SECTION :: ui.Text_Style_Type("section")
+
 main :: proc() {
 	prof_init()
 	defer prof_deinit()
@@ -31,7 +34,6 @@ main :: proc() {
 	rl.InitWindow(WIDTH, HEIGHT, "Exigent UI Demo")
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(.KEY_NULL)
-	default_text_style_type := ui.Text_Style_Type("default")
 	default_font: rl.Font = rl.GetFontDefault()
 
 	textures, sprite_map = preload_sprites()
@@ -40,17 +42,37 @@ main :: proc() {
 	ctx := &ui.Context{}
 	ui.init(ctx)
 	ui.text_style_init(
-		default_text_style_type,
+		TEXT_STYLE_DEFAULT,
 		ui.Text_Style {
-			type = default_text_style_type,
-			size = 28,
-			spacing = 2,
-			line_height = 30,
+			type = TEXT_STYLE_DEFAULT,
+			size = 20,
+			spacing = 1,
+			line_height = 22,
 			font = &default_font,
 			color = ui.Color{0, 0, 0, 255},
 		},
 		nil,
 		measure_width,
+	)
+	ui.text_style_register(
+		ui.Text_Style {
+			type = TEXT_STYLE_TITLE,
+			size = 30,
+			spacing = 1,
+			line_height = 32,
+			font = &default_font,
+			color = ui.Color{0, 0, 0, 255},
+		},
+	)
+	ui.text_style_register(
+		ui.Text_Style {
+			type = TEXT_STYLE_SECTION,
+			size = 24,
+			spacing = 1,
+			line_height = 26,
+			font = &default_font,
+			color = ui.Color{0, 0, 0, 255},
+		},
 	)
 
 	// Initialize persistant widget state
@@ -162,86 +184,150 @@ demo_input_is_mouse_down :: proc(user_data: rawptr, button: ui.Mouse_Button) -> 
 update :: proc(ctx: ^ui.Context) {
 	prof_frame_part()
 
-	ui.begin(ctx, WIDTH, HEIGHT) // Update - Build UI
+	ui.begin(ctx, WIDTH, HEIGHT, ui.layout_fixed(WIDTH, HEIGHT, .Column, .Center, .Center)) // Update - Build UI
 	defer ui.end(ctx)
 
-	r := ui.Rect{0, 0, WIDTH, HEIGHT}
+	{
+		panel_style := ui.style_get(ctx, ui.Widget_Type_PANEL)
+		panel_style.base.background = ui.Color{210, 210, 210, 255}
+		ui.style_push(ctx, ui.Widget_Type_PANEL, panel_style)
+		defer ui.style_pop(ctx)
 
-	panel_r := ui.rect_inset(r, 50)
-	ui.panel(ctx, panel_r)
+		ui.panel_begin(
+			ctx,
+			ui.layout_auto(
+				.Column,
+				.Start,
+				.Center,
+				padding = ui.Inset{top = 22, right = 28, bottom = 22, left = 28},
+				gap = 22,
+			),
+		)
+		defer ui.panel_end(ctx)
 
-	labels_r := panel_r
-	widgets_r := ui.rect_cut_right(&labels_r, panel_r.w / 2)
+		title_label(ctx, "Layout showcase")
+		controls_section(ctx)
+		scrollboxes_section(ctx)
+	}
+}
 
-	line1_label_r := ui.rect_cut_top(&labels_r, 80)
-	ui.label(ctx, line1_label_r, "Button:", .Center, .Center)
-	line1_widget_r := ui.rect_cut_top(&widgets_r, 80)
-	line1_widget_r = ui.rect_inset(line1_widget_r, 10)
-	ui.button(ctx, line1_widget_r, "Click me!")
+title_label :: proc(ctx: ^ui.Context, txt: string, caller := #caller_location, sub_id: int = 0) {
+	ui.text_style_push(ctx, TEXT_STYLE_TITLE)
+	defer ui.text_style_pop(ctx)
+	ui.label(ctx, txt, .Left, .Top, caller, sub_id)
+}
 
-	line2_label_r := ui.rect_cut_top(&labels_r, 80)
-	ui.label(ctx, line2_label_r, "Text Input:", .Center, .Center)
-	line2_widget_r := ui.rect_cut_top(&widgets_r, 80)
-	line2_widget_r = ui.rect_inset(line2_widget_r, 10)
-	text_style := ui.text_style_curr(ctx)
-	inner_height := text_style.size + 10
-	top_bot_inset := (line2_widget_r.h - inner_height) / 2
-	line2_widget_r = ui.rect_inset(
-		line2_widget_r,
-		ui.Inset{top = top_bot_inset, bottom = top_bot_inset},
-	)
-	ui.text_input(ctx, line2_widget_r, &state.input1)
+section_label :: proc(ctx: ^ui.Context, txt: string, caller := #caller_location, sub_id: int = 0) {
+	ui.text_style_push(ctx, TEXT_STYLE_SECTION)
+	defer ui.text_style_pop(ctx)
+	ui.label(ctx, txt, .Left, .Top, caller, sub_id)
+}
 
-	line3_label_r := ui.rect_cut_top(&labels_r, 120)
-	line3_label_r = ui.rect_inset(line3_label_r, ui.Inset{top = 10})
-	ui.label(ctx, line3_label_r, "Scrollbox (no scroll):", .Center, .Top)
-	line3_widget_r := ui.rect_cut_top(&widgets_r, 120)
-	line3_widget_r = ui.rect_inset(line3_widget_r, 10)
-	ui.scrollbox_begin(ctx, &line3_widget_r, &state.scroll1)
-	scroll_line1 := ui.rect_take_top(&line3_widget_r, 50)
-	ui.label(ctx, scroll_line1, "Line 1", .Center, .Center)
-	scroll_line2 := ui.rect_take_top(&line3_widget_r, 50)
-	ui.label(ctx, scroll_line2, "Line 2", .Center, .Center)
-	ui.scrollbox_end(ctx)
+field_label :: proc(
+	ctx: ^ui.Context,
+	width: f32,
+	txt: string,
+	caller := #caller_location,
+	sub_id: int = 0,
+) {
+	ui.label_sized(ctx, ui.layout_fixed(width, 34), txt, .Right, .Center, caller, sub_id)
+}
 
-	line4_label_r := ui.rect_cut_top(&labels_r, 100)
-	line4_label_r = ui.rect_inset(line4_label_r, ui.Inset{top = 10})
-	ui.label(ctx, line4_label_r, "Scrollbox (scroll):", .Center, .Top)
-	line4_widget_r := ui.rect_cut_top(&widgets_r, 120)
-	line4_widget_r = ui.rect_inset(line4_widget_r, 10)
-	ui.scrollbox_begin(ctx, &line4_widget_r, &state.scroll2)
-	button_style := ui.style_get(ctx, ui.Widget_Type_BUTTON)
-	button_style.base.background = ui.Color{140, 140, 140, 255}
-	ui.style_push(ctx, ui.Widget_Type_BUTTON, button_style)
-	scroll2_line1 := ui.rect_take_top(&line4_widget_r, 50)
-	scroll2_line1 = ui.rect_inset(
-		scroll2_line1,
-		ui.Inset{top = 5, bottom = 5, left = 5, right = 25},
-	)
-	ui.button(ctx, scroll2_line1, "Button 1")
-	scroll2_line2 := ui.rect_take_top(&line4_widget_r, 50)
-	scroll2_line2 = ui.rect_inset(
-		scroll2_line2,
-		ui.Inset{top = 5, bottom = 5, left = 5, right = 25},
-	)
-	ui.button(ctx, scroll2_line2, "Button 2")
-	scroll2_line3 := ui.rect_take_top(&line4_widget_r, 50)
-	scroll2_line3 = ui.rect_inset(
-		scroll2_line3,
-		ui.Inset{top = 5, bottom = 5, left = 5, right = 25},
-	)
-	ui.button(ctx, scroll2_line3, "Button 3")
-	ui.style_pop(ctx)
-	ui.scrollbox_end(ctx)
+controls_section :: proc(ctx: ^ui.Context) {
+	{
+		ui.container_begin(ctx, ui.layout_auto(.Column, gap = 14))
+		defer ui.container_end(ctx)
 
-	line5_label_r := ui.rect_cut_top(&labels_r, 100)
-	ui.label(ctx, line5_label_r, "Images:", .Center, .Center)
-	line5_widget_r := ui.rect_cut_top(&widgets_r, 80)
-	line5_widget_r = ui.rect_inset(line5_widget_r, 10)
-	icon_width := math.floor(line5_widget_r.w / f32(len(sprite_map)))
-	for st, sp in sprite_map {
-		icon := ui.rect_cut_left(&line5_widget_r, icon_width)
-		ui.sprite(ctx, sp, icon)
+		section_label(ctx, "Controls")
+
+		{
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			defer ui.container_end(ctx)
+
+			field_label(ctx, 145, "Button:")
+			ui.button(ctx, ui.layout_fixed(170, 42), "Click me!")
+		}
+
+		{
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			defer ui.container_end(ctx)
+
+			field_label(ctx, 145, "Text Input:")
+			ui.text_input(ctx, ui.layout_fixed(220, 36), &state.input1)
+		}
+
+		section_label(ctx, "Images")
+
+		{
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Center, .Center, gap = 8))
+			defer ui.container_end(ctx)
+
+			for st, sp in sprite_map {
+				ui.image(ctx, ui.layout_fixed(42, 42), sp)
+			}
+		}
+	}
+}
+
+scrollboxes_section :: proc(ctx: ^ui.Context) {
+	{
+		ui.container_begin(ctx, ui.layout_auto(.Column, gap = 14))
+		defer ui.container_end(ctx)
+
+		section_label(ctx, "Scrollboxes")
+
+		{
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			defer ui.container_end(ctx)
+
+			field_label(ctx, 170, "Content fits:")
+
+			ui.scrollbox_begin(
+				ctx,
+				ui.layout_fixed(250, 92, .Column, .Center, .Center),
+				&state.scroll1,
+			)
+			defer ui.scrollbox_end(ctx)
+
+			{
+				ui.container_begin(ctx, ui.layout_fixed(230, 34, .Column, .Center, .Center))
+				defer ui.container_end(ctx)
+
+				ui.label(ctx, "Line 1")
+			}
+
+			{
+				ui.container_begin(ctx, ui.layout_fixed(230, 34, .Column, .Center, .Center))
+				defer ui.container_end(ctx)
+
+				ui.label(ctx, "Line 2")
+			}
+		}
+
+		{
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			defer ui.container_end(ctx)
+
+			field_label(ctx, 170, "Content scrolls:")
+
+			ui.scrollbox_begin(ctx, ui.layout_fixed(250, 92, .Column), &state.scroll2)
+			defer ui.scrollbox_end(ctx)
+
+			button_style := ui.style_get(ctx, ui.Widget_Type_BUTTON)
+			button_style.base.background = ui.Color{140, 140, 140, 255}
+			ui.style_push(ctx, ui.Widget_Type_BUTTON, button_style)
+			defer ui.style_pop(ctx)
+
+			for i in 1 ..= 3 {
+				ui.container_begin(
+					ctx,
+					ui.layout_fixed(230, 42, .Column, .Center, .Center),
+					sub_id = i,
+				)
+				ui.button(ctx, ui.layout_fixed(200, 34), fmt.tprintf("Button %d", i), sub_id = i)
+				ui.container_end(ctx)
+			}
+		}
 	}
 }
 

@@ -1,9 +1,7 @@
 package exigent
 
 import "base:runtime"
-import "core:fmt"
 import "core:hash"
-import "core:math"
 import "core:mem"
 import "core:time"
 
@@ -12,28 +10,59 @@ Widget :: struct {
 	type:        Widget_Type,
 	parent:      ^Widget,
 	children:    [dynamic]^Widget,
+	layout:      Layout,
+	measured_size: [2]f32,
+	content_size:  [2]f32,
+	intrinsic_size: [2]f32,
 	rect:        Rect, // The inner size of the widget
 	clip:        Rect, // The outer size (with borders) of the widget, used for clipping
 	style:       Style,
 	interaction: Widget_Interaction,
+	draw_cmds:   [dynamic]Widget_Draw_Command,
+	draw_offset: [2]f32,
+	scrollbox:   ^Scrollbox,
+}
+
+Widget_Draw_Command :: union {
+	Widget_Draw_Background,
+	Widget_Draw_Rect,
+	Widget_Draw_Text,
+	Widget_Draw_Sprite,
+}
+
+Widget_Draw_Background :: struct {}
+
+Widget_Draw_Rect :: struct {
+	rect:   Rect,
+	color:  Color,
+	border: Border_Style,
+}
+
+Widget_Draw_Text :: struct {
+	text:    string,
+	offset:  [2]f32,
+	h_align: Text_Align_H,
+	v_align: Text_Align_V,
+	style:   Text_Style,
+}
+
+Widget_Draw_Sprite :: struct {
+	sprite: Sprite,
+	rect:   Rect,
 }
 
 widget_begin :: proc(
 	c: ^Context,
 	type: Widget_Type,
-	r: Rect,
+	layout: Layout,
 	caller: runtime.Source_Code_Location,
 	sub_id: int = 0,
 ) {
-	rect := r
-	if scrollbox, exists := scrollbox_curr(c); exists {
-		rect.y += scrollbox_total_y_offset(c)
-	}
-
 	w := new(Widget, c.temp_allocator)
 	id := widget_create_id(c, caller, sub_id)
 	w.id = id
 	w.type = type
+	w.layout = layout
 
 	if type != Widget_Type_ROOT {
 		w.interaction = widget_interaction(c, id)
@@ -47,18 +76,14 @@ widget_begin :: proc(
 	}
 	w.style = style
 
-	w.rect = rect
-	w.clip = rect_inset(rect, -style.border.thickness)
-
-	w.children = make([dynamic]^Widget, c.temp_allocator)
+	w.children.allocator = c.temp_allocator
+	w.draw_cmds.allocator = c.temp_allocator
 
 	if c.widget_curr != nil {
 		parent := c.widget_curr
 		append(&c.widget_stack, c.widget_curr)
 		c.widget_curr = nil
 		w.parent = parent
-		// child must within within parent.rect so it doesn't overlap borders
-		w.clip = rect_intersect(parent.rect, w.clip)
 		append(&w.parent.children, w)
 	}
 
@@ -67,15 +92,12 @@ widget_begin :: proc(
 	if c.widget_root == nil {
 		c.widget_root = c.widget_curr
 	}
-
-	clip(c, c.widget_curr.clip)
 }
 
 widget_end :: proc(c: ^Context) {
 	if len(c.widget_stack) > 0 {
 		c.widget_curr = pop(&c.widget_stack)
 	}
-	unclip(c)
 }
 
 Widget_ID :: distinct u32
@@ -122,7 +144,7 @@ widget_pick :: proc(w: ^Widget, mouse_pos: [2]f32) -> (hovered: ^Widget, found: 
 	// TODO: This requires that each parent always contains their children fully.
 	// Should we assert this during widget building to prevent surprises? Or
 	// do we want an alternate approach?
-	if !rect_contains(w.rect, mouse_pos) {
+	if !rect_contains(w.clip, mouse_pos) {
 		return nil, false
 	}
 
@@ -181,9 +203,21 @@ widget_register :: proc "contextless" (style: Widget_Style) -> Widget_Type {
 }
 
 Widget_Type_ROOT := widget_register(Widget_Style{})
-root :: proc(c: ^Context, caller := #caller_location, sub_id: int = 0) {
-	screen := Rect{0, 0, f32(c.screen_width), f32(c.screen_height)}
-	widget_begin(c, Widget_Type_ROOT, screen, caller, sub_id)
+root :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
+	widget_begin(c, Widget_Type_ROOT, layout, caller, sub_id)
+}
+
+Widget_Type_CONTAINER := widget_register(Widget_Style{})
+container_begin :: proc(
+	c: ^Context,
+	layout: Layout,
+	caller := #caller_location,
+	sub_id: int = 0,
+) {
+	widget_begin(c, Widget_Type_CONTAINER, layout, caller, sub_id)
+}
+
+container_end :: proc(c: ^Context) {
 	widget_end(c)
 }
 
@@ -195,10 +229,18 @@ Widget_Type_PANEL := widget_register(
 		},
 	},
 )
-panel :: proc(c: ^Context, r: Rect, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, Widget_Type_PANEL, r, caller, sub_id)
+panel_begin :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
+	widget_begin(c, Widget_Type_PANEL, layout, caller, sub_id)
 	background(c)
+}
+
+panel_end :: proc(c: ^Context) {
 	widget_end(c)
+}
+
+panel :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
+	panel_begin(c, layout, caller, sub_id)
+	panel_end(c)
 }
 
 
@@ -220,27 +262,24 @@ Widget_Type_BUTTON := widget_register(
 )
 button :: proc(
 	c: ^Context,
-	r: Rect,
+	layout: Layout,
 	txt: string,
 	background_image := Sprite{},
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
-	widget_begin(c, Widget_Type_BUTTON, r, caller, sub_id)
+	widget_begin(c, Widget_Type_BUTTON, layout, caller, sub_id)
 	defer widget_end(c)
 
-	// Tiny press animation
 	if c.widget_curr.interaction.down {
-		c.widget_curr.rect.x += 1
-		c.widget_curr.rect.y += 1
+		c.widget_curr.draw_offset = {1, 1}
 	}
 
 	if background_image != {} {
-		sprite(c, background_image, c.widget_curr.rect)
+		sprite(c, background_image, Rect{})
 	} else {
 		background(c)
 	}
-
 	if len(txt) > 0 {
 		text(c, txt, .Center, .Center)
 	}
@@ -251,15 +290,30 @@ button :: proc(
 Widget_Type_LABEL := widget_register(Widget_Style{})
 label :: proc(
 	c: ^Context,
-	r: Rect,
 	txt: string,
 	h_align: Text_Align_H = .Left,
 	v_align: Text_Align_V = .Top,
 	caller := #caller_location,
 	sub_id: int = 0,
 ) {
-	widget_begin(c, Widget_Type_LABEL, r, caller, sub_id)
-	text_aligned(c, txt, h_align, v_align)
+	widget_begin(c, Widget_Type_LABEL, layout_intrinsic(), caller, sub_id)
+	text_style := text_style_curr(c)
+	c.widget_curr.intrinsic_size = {text_width_style(text_style, txt), text_style.line_height}
+	text(c, txt, h_align, v_align)
+	widget_end(c)
+}
+
+label_sized :: proc(
+	c: ^Context,
+	layout: Layout,
+	txt: string,
+	h_align: Text_Align_H = .Left,
+	v_align: Text_Align_V = .Top,
+	caller := #caller_location,
+	sub_id: int = 0,
+) {
+	widget_begin(c, Widget_Type_LABEL, layout, caller, sub_id)
+	text(c, txt, h_align, v_align)
 	widget_end(c)
 }
 
@@ -281,12 +335,12 @@ Widget_Type_TEXT_INPUT := widget_register(
 )
 text_input :: proc(
 	c: ^Context,
-	r: Rect,
+	layout: Layout,
 	data: ^Text_Input,
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
-	widget_begin(c, Widget_Type_TEXT_INPUT, r, caller, sub_id)
+	widget_begin(c, Widget_Type_TEXT_INPUT, layout, caller, sub_id)
 	defer widget_end(c)
 
 	if c.widget_curr.interaction.released {
@@ -294,25 +348,40 @@ text_input :: proc(
 		data._focused_ts = time.now()
 	}
 
-	offset := [2]f32{5, 5}
 	txt := text_buffer_to_string(&data.text)
-	blink_rate := data.blink_rate if data.blink_rate > 0 else BLINK_RATE_DEFAULT
-	elapsed := time.diff(data._focused_ts, time.now())
-	is_active := data == c.active_text_input
-	show_cursor := is_active && (elapsed % blink_rate) < (blink_rate / 2)
 
 	background(c)
+	offset := [2]f32{5, 5}
 	if len(txt) > 0 do text(c, txt, offset)
-	if show_cursor {
-		current_text_width := text_width(c, txt)
-		x := r.x + offset.x + current_text_width + 4
-		text_style := text_style_curr(c)
-		y_start := r.y + offset.y
-		y_end := r.y + offset.y + text_style.size
-		line_v(c, y_start, y_end, x, 2, text_style.color)
+	if data == c.active_text_input {
+		blink_rate := data.blink_rate if data.blink_rate > 0 else BLINK_RATE_DEFAULT
+		elapsed := time.diff(data._focused_ts, time.now())
+		if (elapsed % blink_rate) < (blink_rate / 2) {
+			text_style := text_style_curr(c)
+			current_text_width := text_width_style(text_style, txt)
+			x := offset.x + current_text_width + 4
+			line_v(c, offset.y, offset.y + text_style.size, x, 2, text_style.color)
+		}
 	}
 
 	return c.widget_curr.interaction
+}
+
+image :: proc(
+	c: ^Context,
+	layout: Layout,
+	sp: Sprite,
+	caller := #caller_location,
+	sub_id: int = 0,
+) {
+	widget_begin(c, Widget_Type_CONTAINER, layout, caller, sub_id)
+	sprite(c, sp, Rect{})
+	widget_end(c)
+}
+
+spacer :: proc(c: ^Context, width, height: f32, caller := #caller_location, sub_id: int = 0) {
+	widget_begin(c, Widget_Type_CONTAINER, layout_fixed(width, height), caller, sub_id)
+	widget_end(c)
 }
 
 Scrollbox :: struct {
@@ -320,12 +389,6 @@ Scrollbox :: struct {
 	y_offset:       f32, // persists across frames
 	// used within begin/end to get attributes of the widget
 	_w:             ^Widget,
-	// when rect_take procs are used this contains the result, and negative height
-	// means the content must clip and scroll
-	// TODO: Not sure I like this solution, but it avoids caching content size
-	// across frames size but it is pretty "magic" and requires careful usage so
-	// not robust to using it wrong
-	_layout:        ^Rect,
 }
 
 Widget_Type_SCROLLBOX := widget_register(
@@ -338,17 +401,15 @@ Widget_Type_SCROLLBOX := widget_register(
 )
 scrollbox_begin :: proc(
 	c: ^Context,
-	r: ^Rect,
+	layout: Layout,
 	data: ^Scrollbox,
 	caller := #caller_location,
 	sub_id: int = 0,
 ) {
-	// this explicitly copies the r Rect since rect_take operations
-	// will modify the original Rect as we add content to it
-	widget_begin(c, Widget_Type_SCROLLBOX, r^, caller, sub_id)
+	widget_begin(c, Widget_Type_SCROLLBOX, layout, caller, sub_id)
 
 	data._w = c.widget_curr
-	data._layout = r
+	c.widget_curr.scrollbox = data
 	background(c)
 
 	append(&c.scrollbox_stack, data)
@@ -360,80 +421,6 @@ SCROLLBAR_ALPHA_DEFAULT: u8 = 185
 
 scrollbox_end :: proc(c: ^Context) {
 	scrollbox := pop(&c.scrollbox_stack)
-
-	// only do scrollbox when content extends beyond scrollbox height
-	if scrollbox._layout.h < 0 {
-		scrollbox_height := scrollbox._w.rect.h
-		content_height := scrollbox_height + (-scrollbox._layout.h)
-
-		// update scroll position
-		if (rect_contains(scrollbox._w.rect, input_get_mouse_pos(c))) {
-			scroll_delta := input_get_scroll(c)
-			speed: f32 = SCROLL_STEP_PX_DEFAULT
-			if scrollbox.scroll_step_px > 0 {
-				speed = scrollbox.scroll_step_px
-			}
-			scrollbox.y_offset += scroll_delta * speed
-			scrollbox.y_offset = math.clamp(
-				scrollbox.y_offset,
-				-(content_height - scrollbox_height),
-				0,
-			)
-		}
-
-		// draw scrollbar track
-		style := c.widget_curr.style
-		r := scrollbox._w.rect
-		scrollbar_width := style.scrollbar_width
-		if scrollbar_width <= 0 {
-			scrollbar_width = SCROLLBAR_WIDTH_PX_DEFAULT
-		}
-		scrollbar := rect_cut_right(&r, scrollbar_width)
-		scrollbar_track := scrollbar
-		scrollbar_alpha := style.scrollbar_alpha
-		if scrollbar_alpha <= 0 {
-			scrollbar_alpha = SCROLLBAR_ALPHA_DEFAULT
-		}
-		faded_color := style.background
-		faded_color.a = scrollbar_alpha
-		rect(c, scrollbar_track, faded_color)
-
-		// draw scrollbar "thumb"
-		thumb_height := scrollbox_height * scrollbox_height / content_height
-		thumb_height = math.max(thumb_height, scrollbar_width, 20) // min thumb size
-		pct := -scrollbox.y_offset / (content_height - scrollbox_height)
-		pct = math.clamp(pct, 0, 1)
-		thumb := Rect {
-			x = scrollbar.x,
-			y = scrollbar.y + (pct * (scrollbox_height - thumb_height)),
-			h = thumb_height,
-			w = scrollbar.w,
-		}
-		thumb = rect_inset(thumb, 2)
-		faded_color = color_contrast(style.background)
-		faded_color.a = scrollbar_alpha
-		rect(c, thumb, faded_color)
-	}
-
-	// cleanup
 	scrollbox._w = nil
-	scrollbox._layout = {}
 	widget_end(c)
-}
-
-@(private)
-scrollbox_curr :: proc(c: ^Context) -> (^Scrollbox, bool) {
-	if len(c.scrollbox_stack) > 0 {
-		return c.scrollbox_stack[len(c.scrollbox_stack) - 1], true
-	}
-	return nil, false
-}
-
-@(private)
-scrollbox_total_y_offset :: proc(c: ^Context) -> f32 {
-	total: f32 = 0
-	for sb in c.scrollbox_stack {
-		total += sb.y_offset
-	}
-	return total
 }

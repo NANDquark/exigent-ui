@@ -2,19 +2,16 @@ package exigent
 
 import "core:strings"
 
+// Draw a rect relative to the current widget's resolved rect.
 rect :: proc(c: ^Context, r: Rect, color: Color, border := Border_Style{}) {
-	append(
-		&c.cmds,
-		Command_Rect{rect = r, color = color, border = border, clip = c.widget_curr.clip},
-	)
+	append(&c.widget_curr.draw_cmds, Widget_Draw_Rect{rect = r, color = color, border = border})
 }
 
 background :: proc(c: ^Context) {
-	style := c.widget_curr.style
-	rect(c, c.widget_curr.rect, style.background, style.border)
+	append(&c.widget_curr.draw_cmds, Widget_Draw_Background{})
 }
 
-// Draw a horizontal line
+// Draw a horizontal line relative to the current widget's resolved rect.
 line_h :: proc(c: ^Context, x_start, x_end, y: f32, thickness: f32, color: Color) {
 	x_min := min(x_start, x_end)
 	w := abs(x_end - x_start)
@@ -27,7 +24,7 @@ line_h :: proc(c: ^Context, x_start, x_end, y: f32, thickness: f32, color: Color
 	rect(c, line, color)
 }
 
-// Draw a vertical line
+// Draw a vertical line relative to the current widget's resolved rect.
 line_v :: proc(c: ^Context, y_start, y_end, x: f32, thickness: f32, color: Color) {
 	y_min := min(y_start, y_end)
 	h := abs(y_end - y_start)
@@ -59,62 +56,34 @@ Text_Align_V :: enum {
 
 text_aligned :: proc(c: ^Context, text: string, h_align: Text_Align_H, v_align: Text_Align_V) {
 	assert(!strings.contains(text, "\n"), "multiline text not supported yet")
-	text := text_clip(c, text, c.widget_curr.rect)
-
-	text_style := text_style_curr(c)
-	r := c.widget_curr.rect
-	tw := text_width(c, text)
-
-	offset: [2]f32
-
-	switch h_align {
-	case .Left:
-		offset.x = 0
-	case .Center:
-		offset.x = (r.w - f32(tw)) * 0.5
-	case .Right:
-		offset.x = r.w - f32(tw)
-	}
-
-	switch v_align {
-	case .Top:
-		offset.y = 0
-	case .Center:
-		offset.y = (r.h - text_style.line_height) * 0.5
-	case .Bottom:
-		offset.y = r.h - text_style.line_height
-	}
-
-	text_ex(c, text, offset)
+	append(
+		&c.widget_curr.draw_cmds,
+		Widget_Draw_Text {
+			text = text,
+			h_align = h_align,
+			v_align = v_align,
+			style = text_style_curr(c),
+		},
+	)
 }
 
 // Widgets support a single text string and will be automatically split on newlines
 text_ex :: proc(c: ^Context, text: string, offset: [2]f32) {
 	assert(!strings.contains(text, "\n"), "multiline text not supported yet")
-	r := c.widget_curr.rect
 	append(
-		&c.cmds,
-		Command_Text {
+		&c.widget_curr.draw_cmds,
+		Widget_Draw_Text {
 			text = text,
-			pos = [2]f32{r.x, r.y} + offset,
+			offset = offset,
+			h_align = .Left,
+			v_align = .Top,
 			style = text_style_curr(c),
-			clip = c.widget_curr.clip,
 		},
 	)
 }
 
-// Draw a sprite, scaling it to the dst Rect location and size
+// Draw a sprite, scaling it to the dst rect relative to the current widget.
+// An empty dst uses the current widget's full resolved rect.
 sprite :: proc(c: ^Context, sprite: Sprite, dst: Rect) {
-	r := c.widget_curr.rect
-	append(&c.cmds, Command_Sprite{sprite = sprite, rect = dst})
-}
-
-@(private)
-clip :: proc(c: ^Context, r: Rect) {
-	append(&c.cmds, Command_Clip{rect = r})
-}
-
-@(private)
-unclip :: proc(c: ^Context) {
-	append(&c.cmds, Command_Unclip{})
+	append(&c.widget_curr.draw_cmds, Widget_Draw_Sprite{sprite = sprite, rect = dst})
 }

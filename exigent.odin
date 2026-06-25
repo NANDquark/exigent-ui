@@ -50,6 +50,11 @@ destroy :: proc(c: ^Context) {
 	context.allocator = c.perm_allocator
 	input_destroy(c.input_prev)
 	input_destroy(c.input_curr)
+	delete(c.widget_stack)
+	delete(c.style_stack)
+	delete(c.text_style_stack)
+	delete(c.cmds)
+	delete(c.scrollbox_stack)
 }
 
 is_pointer_captured :: proc(c: ^Context) -> bool {
@@ -67,7 +72,20 @@ is_keyboard_captured :: proc(c: ^Context) -> bool {
 	return c.active_text_input != nil
 }
 
-begin :: proc(c: ^Context, screen_width, screen_height: int) {
+begin :: proc {
+	begin_default,
+	begin_ex,
+}
+
+begin_default :: proc(c: ^Context, screen_width, screen_height: int) {
+	begin_ex(c, screen_width, screen_height, layout_fixed(f32(screen_width), f32(screen_height)))
+}
+
+begin_ex :: proc(
+	c: ^Context,
+	screen_width, screen_height: int,
+	root_layout: Layout,
+) {
 	c.screen_width = screen_width
 	c.screen_height = screen_height
 	c.widget_root = nil
@@ -78,7 +96,7 @@ begin :: proc(c: ^Context, screen_width, screen_height: int) {
 	clear(&c.style_stack)
 	clear(&c.text_style_stack)
 
-	root(c) // create root widget all builder-code widgets are children of
+	root(c, root_layout) // create root widget all builder-code widgets are children of
 
 	if c.active_text_input != nil {
 		if input_is_key_released(c, .Escape) {
@@ -100,6 +118,16 @@ end :: proc(c: ^Context) {
 	assert(len(c.style_stack) == 0, "every style_push must have a style_pop")
 	assert(len(c.text_style_stack) == 0, "every text_style_push must have a text_style_pop")
 	assert(len(c.scrollbox_stack) == 0, "every scrollbox must be ended")
+
+	clear(&c.cmds)
+	layout_measure_tree(c, c.widget_root)
+	layout_position_tree(
+		c,
+		c.widget_root,
+		[2]f32{0, 0},
+		Rect{0, 0, f32(c.screen_width), f32(c.screen_height)},
+	)
+	layout_emit_commands(c, c.widget_root)
 
 	c.widget_curr = nil
 	input_swap(c)
