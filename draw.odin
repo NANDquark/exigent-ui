@@ -54,22 +54,32 @@ Text_Align_V :: enum {
 	Bottom,
 }
 
-text_aligned :: proc(c: ^Context, text: string, h_align: Text_Align_H, v_align: Text_Align_V) {
+text_aligned :: proc(
+	c: ^Context,
+	text: string,
+	h_align: Text_Align_H,
+	v_align: Text_Align_V,
+	style := Text_Style{},
+) {
 	assert(!strings.contains(text, "\n"), "multiline text not supported yet")
+	style := style
+	if style == {} do style = text_style_curr(c)
 	append(
 		&c.widget_curr.draw_cmds,
 		Widget_Draw_Text {
 			text = text,
 			h_align = h_align,
 			v_align = v_align,
-			style = text_style_curr(c),
+			style = style,
 		},
 	)
 }
 
 // Widgets support a single text string and will be automatically split on newlines
-text_ex :: proc(c: ^Context, text: string, offset: [2]f32) {
+text_ex :: proc(c: ^Context, text: string, offset: [2]f32, style := Text_Style{}) {
 	assert(!strings.contains(text, "\n"), "multiline text not supported yet")
+	style := style
+	if style == {} do style = text_style_curr(c)
 	append(
 		&c.widget_curr.draw_cmds,
 		Widget_Draw_Text {
@@ -77,7 +87,7 @@ text_ex :: proc(c: ^Context, text: string, offset: [2]f32) {
 			offset = offset,
 			h_align = .Left,
 			v_align = .Top,
-			style = text_style_curr(c),
+			style = style,
 		},
 	)
 }

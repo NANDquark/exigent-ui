@@ -310,7 +310,7 @@ layout_emit_text :: proc(c: ^Context, w: ^Widget, dc: Widget_Draw_Text) {
 	txt := layout_text_clip(c, dc.text, r, dc.style)
 	if len(txt) == 0 do return
 
-	tw := text_width_style(dc.style, txt)
+	tw := text_width_style(c, dc.style, txt)
 	offset := dc.offset
 
 	switch dc.h_align {
@@ -347,11 +347,11 @@ layout_text_clip :: proc(c: ^Context, text: string, r: Rect, style: Text_Style) 
 	}
 
 	text := text
-	if text != "" && r.w < text_width_style(style, text) {
-		ellipses_width := text_width_style(style, "...")
+	if text != "" && r.w < text_width_style(c, style, text) {
+		ellipses_width := text_width_style(c, style, "...")
 		for true {
 			if len(text) == 0 do break
-			truncated_width := text_width_style(style, text) + ellipses_width
+			truncated_width := text_width_style(c, style, text) + ellipses_width
 			if truncated_width < r.w {
 				return strings.concatenate([]string{text, "..."}, c.temp_allocator)
 			}

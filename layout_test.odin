@@ -1,45 +1,27 @@
 package exigent
 
-import "core:testing"
 import "base:runtime"
-
-test_text_width :: proc(data: rawptr, style: Text_Style, text: string) -> f32 {
-	return f32(len(text)) * 10
-}
+import "core:testing"
 
 test_layout_context_create :: proc() -> ^Context {
 	c := fixture_context_create()
-	text_style_init(
-		Text_Style_Type("test"),
-		Text_Style{type = "test", size = 12, line_height = 14, color = Color{255, 255, 255, 255}},
-		nil,
-		test_text_width,
-	)
+	theme := theme_light(nil)
+	theme.font.size_md = 12
+	theme.font.size_lg = 18
+	theme.font.line_scale = 14.0 / 12.0
+	theme_set(c, theme)
 	return c
 }
 
 @(test)
-test_text_style_register_and_push_selects_registered_style :: proc(t: ^testing.T) {
+test_text_style_role_selects_theme_tokens :: proc(t: ^testing.T) {
 	c := test_layout_context_create()
 	defer fixture_context_delete(c)
 
-	text_style_register(
-		Text_Style {
-			type = "section",
-			size = 18,
-			line_height = 20,
-			color = Color{255, 255, 255, 255},
-		},
-	)
-
-	text_style_push(c, "section")
-
-	style := text_style_curr(c)
+	style := text_style(c, .Section)
 	testing.expect_value(t, style.size, f32(18))
-	testing.expect_value(t, style.line_height, f32(20))
-	text_style_pop(c)
-	delete(reg.styles)
-	reg.styles = nil
+	testing.expect_value(t, style.line_height, f32(21))
+	testing.expect_value(t, style.color, c.theme.color.fg)
 }
 
 @(test)
@@ -58,9 +40,9 @@ test_layout_auto_column_uses_fixed_and_intrinsic_children :: proc(t: ^testing.T)
 	button_w := container.children[0]
 	label_w := container.children[1]
 
-	testing.expect_value(t, container.rect, Rect{0, 0, 40, 38})
-	testing.expect_value(t, button_w.rect, Rect{2, 2, 30, 20})
-	testing.expect_value(t, label_w.rect, Rect{0, 24, 40, 14})
+	testing.expect_value(t, container.rect, Rect{0, 0, 40, 36})
+	testing.expect_value(t, button_w.rect, Rect{1, 1, 30, 20})
+	testing.expect_value(t, label_w.rect, Rect{0, 22, 40, 14})
 	free_all(c.temp_allocator)
 }
 
@@ -78,9 +60,9 @@ test_layout_parent_reserves_child_border_footprint :: proc(t: ^testing.T) {
 	container := c.widget_root.children[0]
 	button_w := container.children[0]
 
-	testing.expect_value(t, container.rect, Rect{0, 0, 34, 24})
-	testing.expect_value(t, button_w.rect, Rect{2, 2, 30, 20})
-	testing.expect_value(t, button_w.clip, Rect{0, 0, 34, 24})
+	testing.expect_value(t, container.rect, Rect{0, 0, 32, 22})
+	testing.expect_value(t, button_w.rect, Rect{1, 1, 30, 20})
+	testing.expect_value(t, button_w.clip, Rect{0, 0, 32, 22})
 	free_all(c.temp_allocator)
 }
 
@@ -102,9 +84,9 @@ test_layout_padding_adds_space_around_children :: proc(t: ^testing.T) {
 	container := c.widget_root.children[0]
 	button_w := container.children[0]
 
-	testing.expect_value(t, container.rect, Rect{0, 0, 24, 22})
-	testing.expect_value(t, button_w.rect, Rect{8, 5, 10, 10})
-	testing.expect_value(t, button_w.clip, Rect{6, 3, 14, 14})
+	testing.expect_value(t, container.rect, Rect{0, 0, 22, 20})
+	testing.expect_value(t, button_w.rect, Rect{7, 4, 10, 10})
+	testing.expect_value(t, button_w.clip, Rect{6, 3, 12, 12})
 	free_all(c.temp_allocator)
 }
 
@@ -161,8 +143,8 @@ test_layout_row_aligns_children_on_main_and_cross_axes :: proc(t: ^testing.T) {
 	second := container.children[1]
 
 	testing.expect_value(t, container.rect, Rect{0, 0, 100, 50})
-	testing.expect_value(t, first.rect, Rect{23, 38, 20, 10})
-	testing.expect_value(t, second.rect, Rect{47, 28, 30, 20})
+	testing.expect_value(t, first.rect, Rect{24, 39, 20, 10})
+	testing.expect_value(t, second.rect, Rect{46, 29, 30, 20})
 	free_all(c.temp_allocator)
 }
 
@@ -198,7 +180,7 @@ test_layout_commands_use_resolved_geometry :: proc(t: ^testing.T) {
 	end(c)
 
 	found_button_rect := false
-	expected := Rect{40, 38, 20, 10}
+	expected := Rect{40, 39, 20, 10}
 	it := cmd_iterator_create(c)
 	for cmd in cmd_iterator_next(&it) {
 		switch v in cmd {
@@ -280,10 +262,10 @@ test_layout_scrollbox_offsets_overflow_and_emits_scrollbar :: proc(t: ^testing.T
 	scrollbox := c.widget_root.children[0]
 	first_row := scrollbox.children[0]
 	testing.expect_value(t, sb.y_offset, f32(-20))
-	testing.expect_value(t, first_row.rect, Rect{2, -18, 100, 50})
+	testing.expect_value(t, first_row.rect, Rect{1, -19, 100, 50})
 
 	found_track := false
-	expected_track := Rect{82, 2, 20, 100}
+	expected_track := Rect{85, 1, 16, 100}
 	it := cmd_iterator_create(c)
 	for cmd in cmd_iterator_next(&it) {
 		switch v in cmd {
@@ -322,7 +304,7 @@ test_scrollbox_scrollbar_uses_padded_viewport :: proc(t: ^testing.T) {
 	end(c)
 
 	found_track := false
-	expected_track := Rect{82, 2, 20, 100}
+	expected_track := Rect{85, 1, 16, 100}
 	it := cmd_iterator_create(c)
 	for cmd in cmd_iterator_next(&it) {
 		switch v in cmd {

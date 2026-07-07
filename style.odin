@@ -1,6 +1,45 @@
 package exigent
 
-import "base:runtime"
+Theme :: struct {
+	color:   Theme_Colors,
+	spacing: Theme_Spacing,
+	font:    Theme_Font,
+}
+
+Theme_Colors :: struct {
+	bg:         Color,
+	surface:    Color,
+	elevated:   Color,
+	border:     Color,
+	fg:         Color,
+	fg_muted:   Color,
+	primary:    Color,
+	on_primary: Color,
+	selection:  Color,
+	success:    Color,
+	warning:    Color,
+	danger:     Color,
+}
+
+Theme_Spacing :: struct {
+	xs: f32,
+	sm: f32,
+	md: f32,
+	lg: f32,
+	xl: f32,
+}
+
+Theme_Font :: struct {
+	font:         rawptr,
+	spacing:      f32,
+	line_scale:   f32,
+	size_xs:      f32,
+	size_sm:      f32,
+	size_md:      f32,
+	size_lg:      f32,
+	size_xl:      f32,
+	size_display: f32,
+}
 
 Widget_Style :: struct {
 	base:   Style,
@@ -28,22 +67,87 @@ Border_Type :: enum {
 	Square,
 }
 
-Widget_Type_Style :: struct {
-	type:  Widget_Type,
-	style: Widget_Style,
+rgb :: proc(hex: u32) -> Color {
+	return Color{u8(hex >> 16), u8(hex >> 8), u8(hex), 255}
 }
 
-// TODO: This allocated at a global scope doesn't follow the pattern to allow
-// the caller to decide how allocations work, it should be cleaned up
-DEFAULT_STYLES := map[Widget_Type]Widget_Style{}
+rgba :: proc(hex: u32) -> Color {
+	return Color{u8(hex >> 24), u8(hex >> 16), u8(hex >> 8), u8(hex)}
+}
+
+theme_dark :: proc(font: rawptr) -> Theme {
+	return Theme {
+		color = {
+			bg = rgb(0x0f1115),
+			surface = rgb(0x17191e),
+			elevated = rgb(0x21242b),
+			border = rgb(0x2e323a),
+			fg = rgb(0xe6edf3),
+			fg_muted = rgb(0x8b95a3),
+			primary = rgb(0x3b82f6),
+			on_primary = rgb(0xffffff),
+			selection = rgba(0x3b82f659),
+			success = rgb(0x2ea043),
+			warning = rgb(0xd29922),
+			danger = rgb(0xe5484d),
+		},
+		spacing = theme_default_spacing(),
+		font = theme_default_font(font),
+	}
+}
+
+theme_light :: proc(font: rawptr) -> Theme {
+	return Theme {
+		color = {
+			bg = rgb(0xffffff),
+			surface = rgb(0xf6f8fa),
+			elevated = rgb(0xffffff),
+			border = rgb(0xd0d7de),
+			fg = rgb(0x1f2328),
+			fg_muted = rgb(0x59636e),
+			primary = rgb(0x0969da),
+			on_primary = rgb(0xffffff),
+			selection = rgba(0x0969da40),
+			success = rgb(0x1a7f37),
+			warning = rgb(0x9a6700),
+			danger = rgb(0xcf222e),
+		},
+		spacing = theme_default_spacing(),
+		font = theme_default_font(font),
+	}
+}
+
+theme_with_primary :: proc(base: Theme, accent: Color) -> Theme {
+	t := base
+	t.color.primary = accent
+	if color_luminance(accent) < 0.5 {
+		t.color.on_primary = Color{255, 255, 255, 255}
+	} else {
+		t.color.on_primary = Color{0, 0, 0, 255}
+	}
+	t.color.selection = accent
+	t.color.selection.a = 77
+	return t
+}
 
 @(private)
-style_default_register :: proc "contextless" (type: Widget_Type, style: Widget_Style) {
-	if _, ok := DEFAULT_STYLES[type]; ok {
-		context = runtime.default_context()
-		panic("overriding existing default widget style")
+theme_default_spacing :: proc() -> Theme_Spacing {
+	return {xs = 4, sm = 8, md = 12, lg = 16, xl = 24}
+}
+
+@(private)
+theme_default_font :: proc(font: rawptr) -> Theme_Font {
+	return {
+		font = font,
+		spacing = 1,
+		line_scale = 1.15,
+		size_xs = 11,
+		size_sm = 13,
+		size_md = 14,
+		size_lg = 18,
+		size_xl = 24,
+		size_display = 36,
 	}
-	DEFAULT_STYLES[type] = style
 }
 
 // Blend t percent of c2 into c1. This function uses float math so could be
@@ -57,10 +161,14 @@ color_blend :: proc(c1, c2: Color, t: f32) -> (cb: Color) {
 	return cb
 }
 
+color_luminance :: proc(c: Color) -> f32 {
+	return (f32(c.r) * 0.2126 + f32(c.g) * 0.7152 + f32(c.b) * 0.0722) / 255.0
+}
+
 // Calculate a color that would have visible contrast with c Color by blending
 // white or black based on perceived luminance
 color_contrast :: proc(c: Color) -> Color {
-	luminance := (f32(c.r) * 0.2126 + f32(c.g) * 0.7152 + f32(c.b) * 0.0722) / 255.0
+	luminance := color_luminance(c)
 	overlay := Color{0, 0, 0, c.a}
 	if luminance < 0.5 do overlay = Color{255, 255, 255, c.a}
 	distance_from_edge := abs(luminance - 0.5)
@@ -68,38 +176,56 @@ color_contrast :: proc(c: Color) -> Color {
 	return color_blend(c, overlay, t)
 }
 
-style_push :: proc(c: ^Context, type: Widget_Type, style: Widget_Style) {
-	assert(type != Widget_Type_NONE, "invalid widget type (0)")
-	append(&c.style_stack, Widget_Type_Style{type = type, style = style})
-}
-
-style_pop :: proc(c: ^Context) {
-	assert(len(c.style_stack) > 0)
-	pop(&c.style_stack)
-}
-
 style_get :: proc(c: ^Context, type: Widget_Type) -> Widget_Style {
 	assert(type != Widget_Type_NONE, "invalid widget type (0)")
-	for wts in c.style_stack {
-		if wts.type == type {
-			return wts.style
-		}
-	}
-	for wtype, wstyle in c.style_default {
-		if wtype == type {
-			return wstyle
-		}
-	}
-	panic("missing style for widget")
-}
+	th := &c.theme
 
-// // Get the current widget's style, accounting for hover, active, or none (base)
-// style_curr :: proc(c: ^Context) -> Style {
-// 	style := c.widget_curr.style.base
-// 	if c.widget_curr.id == c.active_widget_id && c.widget_curr.style.active != {} {
-// 		style = c.widget_curr.style.active
-// 	} else if c.widget_curr.id == c.hovered_widget_id && c.widget_curr.style.hover != {} {
-// 		style = c.widget_curr.style.hover
-// 	}
-// 	return style
-// }
+	if type == Widget_Type_ROOT || type == Widget_Type_CONTAINER || type == Widget_Type_LABEL {
+		return Widget_Style{}
+	}
+	if type == Widget_Type_PANEL {
+		return Widget_Style {
+			base = Style {
+				background = th.color.surface,
+				border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
+			},
+		}
+	}
+	if type == Widget_Type_BUTTON {
+		base := Style {
+			background = th.color.primary,
+			border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
+		}
+		return Widget_Style {
+			base = base,
+			hover = Style {
+				background = color_blend(base.background, th.color.on_primary, 0.12),
+				border = base.border,
+			},
+			active = Style {
+				background = color_blend(base.background, Color{0, 0, 0, base.background.a}, 0.18),
+				border = base.border,
+			},
+		}
+	}
+	if type == Widget_Type_TEXT_INPUT {
+		return Widget_Style {
+			base = Style {
+				background = th.color.elevated,
+				border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
+			},
+		}
+	}
+	if type == Widget_Type_SCROLLBOX {
+		return Widget_Style {
+			base = Style {
+				background = th.color.surface,
+				border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
+				scrollbar_width = th.spacing.lg,
+				scrollbar_alpha = 185,
+			},
+		}
+	}
+
+	return Widget_Style{}
+}

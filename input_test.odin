@@ -7,9 +7,14 @@ Test_Input_State :: struct {
 	mouse_down: bit_set[Mouse_Button],
 }
 
+fixture_text_width :: proc(data: rawptr, style: Text_Style, text: string) -> f32 {
+	return f32(len(text)) * 10
+}
+
 fixture_context_create :: proc() -> ^Context {
 	c := new(Context)
-	init(c)
+	init(c, theme_dark(nil))
+	text_measure_init(c, nil, fixture_text_width)
 	state := new(Test_Input_State)
 	state.key_down = make(map[Key]bool)
 	c.input_curr.source_user_data = rawptr(state)

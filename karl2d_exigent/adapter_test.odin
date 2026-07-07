@@ -14,6 +14,13 @@ test_rect_and_color_conversion :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_scissor_rect_rounds_fractional_bounds_outward :: proc(t: ^testing.T) {
+	r := ui.Rect{x = 471.6, y = 274.95, w = 42.8, h = 16.1}
+
+	testing.expect_value(t, scissor_rect(r), k2.Rect{x = 471, y = 274, w = 44, h = 18})
+}
+
+@(test)
 test_sprite_source_rect_converts_normalized_uvs_to_pixels :: proc(t: ^testing.T) {
 	sprite := ui.Sprite {
 		texture = ui.Texture_Handle(7),

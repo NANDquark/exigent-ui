@@ -8,10 +8,6 @@ import k2e "karl2d_exigent:."
 WIDTH :: 800
 HEIGHT :: 600
 
-TEXT_STYLE_DEFAULT :: ui.Text_Style_Type("default")
-TEXT_STYLE_TITLE :: ui.Text_Style_Type("title")
-TEXT_STYLE_SECTION :: ui.Text_Style_Type("section")
-
 State :: struct {
 	input:     ui.Text_Input,
 	input_buf: [32]u8,
@@ -19,6 +15,7 @@ State :: struct {
 	renderer:  k2e.Renderer,
 	ctx:       ui.Context,
 	sprites:   [dynamic]ui.Sprite,
+	font:      k2.Font,
 }
 
 state: State
@@ -36,40 +33,17 @@ main :: proc() {
 }
 
 init :: proc() {
-	ui.init(&state.ctx)
+	state.font = k2.FONT_DEFAULT
+	theme := ui.theme_light(&state.font)
+	theme.color.surface = ui.Color{210, 210, 210, 255}
+	theme.font.size_md = 20
+	theme.font.size_lg = 24
+	theme.font.size_xl = 30
+	theme.font.line_scale = 1.1
+	ui.init(&state.ctx, theme = theme)
 	k2e.init(&state.renderer)
 	state.sprites = make([dynamic]ui.Sprite)
-
-	ui.text_style_init(
-		TEXT_STYLE_DEFAULT,
-		ui.Text_Style {
-			type = TEXT_STYLE_DEFAULT,
-			size = 20,
-			spacing = 1,
-			line_height = 22,
-			color = ui.Color{0, 0, 0, 255},
-		},
-		nil,
-		k2e.measure_text,
-	)
-	ui.text_style_register(
-		ui.Text_Style {
-			type = TEXT_STYLE_TITLE,
-			size = 30,
-			spacing = 1,
-			line_height = 32,
-			color = ui.Color{0, 0, 0, 255},
-		},
-	)
-	ui.text_style_register(
-		ui.Text_Style {
-			type = TEXT_STYLE_SECTION,
-			size = 24,
-			spacing = 1,
-			line_height = 26,
-			color = ui.Color{0, 0, 0, 255},
-		},
-	)
+	ui.text_measure_init(&state.ctx, nil, k2e.measure_text)
 
 	state.input = ui.Text_Input {
 		text = ui.text_buffer_create(state.input_buf[:]),
@@ -107,6 +81,7 @@ load_icon :: proc(filename: string) {
 build_ui :: proc() {
 	width := k2.get_screen_width()
 	height := k2.get_screen_height()
+	th := state.ctx.theme
 	ui.begin(
 		&state.ctx,
 		width,
@@ -115,19 +90,14 @@ build_ui :: proc() {
 	)
 	defer ui.end(&state.ctx)
 
-	panel_style := ui.style_get(&state.ctx, ui.Widget_Type_PANEL)
-	panel_style.base.background = ui.Color{210, 210, 210, 255}
-	ui.style_push(&state.ctx, ui.Widget_Type_PANEL, panel_style)
-	defer ui.style_pop(&state.ctx)
-
 	ui.panel_begin(
 		&state.ctx,
 		ui.layout_auto(
 			.Column,
 			.Start,
 			.Center,
-			padding = ui.Inset{top = 22, right = 28, bottom = 22, left = 28},
-			gap = 22,
+			padding = ui.Inset{top = th.spacing.xl, right = 28, bottom = th.spacing.xl, left = 28},
+			gap = th.spacing.xl,
 		),
 	)
 	defer ui.panel_end(&state.ctx)
@@ -139,15 +109,11 @@ build_ui :: proc() {
 }
 
 title_label :: proc(txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.text_style_push(&state.ctx, TEXT_STYLE_TITLE)
-	defer ui.text_style_pop(&state.ctx)
-	ui.label(&state.ctx, txt, .Left, .Top, caller, sub_id)
+	ui.label(&state.ctx, txt, .Left, .Top, caller, sub_id, role = .Title)
 }
 
 section_label :: proc(txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.text_style_push(&state.ctx, TEXT_STYLE_SECTION)
-	defer ui.text_style_pop(&state.ctx)
-	ui.label(&state.ctx, txt, .Left, .Top, caller, sub_id)
+	ui.label(&state.ctx, txt, .Left, .Top, caller, sub_id, role = .Section)
 }
 
 field_label :: proc(width: f32, txt: string, caller := #caller_location, sub_id: int = 0) {
@@ -155,26 +121,28 @@ field_label :: proc(width: f32, txt: string, caller := #caller_location, sub_id:
 }
 
 controls_section :: proc() {
-	ui.container_begin(&state.ctx, ui.layout_auto(.Column, gap = 14))
+	th := state.ctx.theme
+	ui.container_begin(&state.ctx, ui.layout_auto(.Column, gap = th.spacing.lg))
 	defer ui.container_end(&state.ctx)
 
 	section_label("Controls")
 
-	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 	field_label(145, "Button:")
 	ui.button(&state.ctx, ui.layout_fixed(170, 42), "Click me!")
 	ui.container_end(&state.ctx)
 
-	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 	field_label(145, "Text Input:")
 	ui.text_input(&state.ctx, ui.layout_fixed(220, 36), &state.input)
 	ui.container_end(&state.ctx)
 }
 
 image_section :: proc() {
+	th := state.ctx.theme
 	section_label("Images")
 
-	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Center, .Center, gap = 8))
+	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Center, .Center, gap = th.spacing.sm))
 	defer ui.container_end(&state.ctx)
 
 	for sprite, idx in state.sprites {
@@ -183,9 +151,10 @@ image_section :: proc() {
 }
 
 scroll_section :: proc() {
+	th := state.ctx.theme
 	section_label("Scrollbox")
 
-	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 	defer ui.container_end(&state.ctx)
 
 	field_label(145, "Scrollable:")
@@ -193,18 +162,19 @@ scroll_section :: proc() {
 	ui.scrollbox_begin(&state.ctx, ui.layout_fixed(250, 100, .Column), &state.scroll)
 	defer ui.scrollbox_end(&state.ctx)
 
-	button_style := ui.style_get(&state.ctx, ui.Widget_Type_BUTTON)
-	button_style.base.background = ui.Color{140, 140, 140, 255}
-	ui.style_push(&state.ctx, ui.Widget_Type_BUTTON, button_style)
-	defer ui.style_pop(&state.ctx)
-
 	for i in 1 ..= 5 {
 		ui.container_begin(
 			&state.ctx,
 			ui.layout_fixed(230, 42, .Column, .Center, .Center),
 			sub_id = i,
 		)
-		ui.button(&state.ctx, ui.layout_fixed(200, 34), fmt.tprintf("Button %d", i), sub_id = i)
+		ui.button(
+			&state.ctx,
+			ui.layout_fixed(200, 34),
+			fmt.tprintf("Button %d", i),
+			bg = ui.Color{140, 140, 140, 255},
+			sub_id = i,
+		)
 		ui.container_end(&state.ctx)
 	}
 }

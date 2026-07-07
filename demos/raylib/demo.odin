@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:image"
 import "core:image/png"
 import "core:log"
+import "core:math"
 import "core:strings"
 import rl "vendor:raylib"
 
@@ -23,10 +24,6 @@ state := State{}
 textures: [dynamic]rl.Texture2D
 sprite_map: map[Sprite_Type]ui.Sprite
 
-TEXT_STYLE_DEFAULT :: ui.Text_Style_Type("default")
-TEXT_STYLE_TITLE :: ui.Text_Style_Type("title")
-TEXT_STYLE_SECTION :: ui.Text_Style_Type("section")
-
 main :: proc() {
 	prof_init()
 	defer prof_deinit()
@@ -40,40 +37,9 @@ main :: proc() {
 
 	// Initialize UI related context and defaults
 	ctx := &ui.Context{}
-	ui.init(ctx)
-	ui.text_style_init(
-		TEXT_STYLE_DEFAULT,
-		ui.Text_Style {
-			type = TEXT_STYLE_DEFAULT,
-			size = 20,
-			spacing = 1,
-			line_height = 22,
-			font = &default_font,
-			color = ui.Color{0, 0, 0, 255},
-		},
-		nil,
-		measure_width,
-	)
-	ui.text_style_register(
-		ui.Text_Style {
-			type = TEXT_STYLE_TITLE,
-			size = 30,
-			spacing = 1,
-			line_height = 32,
-			font = &default_font,
-			color = ui.Color{0, 0, 0, 255},
-		},
-	)
-	ui.text_style_register(
-		ui.Text_Style {
-			type = TEXT_STYLE_SECTION,
-			size = 24,
-			spacing = 1,
-			line_height = 26,
-			font = &default_font,
-			color = ui.Color{0, 0, 0, 255},
-		},
-	)
+	theme := ui.theme_dark(&default_font)
+	ui.init(ctx, theme = theme)
+	ui.text_measure_init(ctx, nil, measure_width)
 
 	// Initialize persistant widget state
 	input1_buf: [16]u8
@@ -188,10 +154,7 @@ update :: proc(ctx: ^ui.Context) {
 	defer ui.end(ctx)
 
 	{
-		panel_style := ui.style_get(ctx, ui.Widget_Type_PANEL)
-		panel_style.base.background = ui.Color{210, 210, 210, 255}
-		ui.style_push(ctx, ui.Widget_Type_PANEL, panel_style)
-		defer ui.style_pop(ctx)
+		th := ctx.theme
 
 		ui.panel_begin(
 			ctx,
@@ -199,8 +162,13 @@ update :: proc(ctx: ^ui.Context) {
 				.Column,
 				.Start,
 				.Center,
-				padding = ui.Inset{top = 22, right = 28, bottom = 22, left = 28},
-				gap = 22,
+				padding = ui.Inset {
+					top = th.spacing.xl,
+					right = 28,
+					bottom = th.spacing.xl,
+					left = 28,
+				},
+				gap = th.spacing.xl,
 			),
 		)
 		defer ui.panel_end(ctx)
@@ -212,15 +180,11 @@ update :: proc(ctx: ^ui.Context) {
 }
 
 title_label :: proc(ctx: ^ui.Context, txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.text_style_push(ctx, TEXT_STYLE_TITLE)
-	defer ui.text_style_pop(ctx)
-	ui.label(ctx, txt, .Left, .Top, caller, sub_id)
+	ui.label(ctx, txt, .Left, .Top, caller, sub_id, role = .Title)
 }
 
 section_label :: proc(ctx: ^ui.Context, txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.text_style_push(ctx, TEXT_STYLE_SECTION)
-	defer ui.text_style_pop(ctx)
-	ui.label(ctx, txt, .Left, .Top, caller, sub_id)
+	ui.label(ctx, txt, .Left, .Top, caller, sub_id, role = .Section)
 }
 
 field_label :: proc(
@@ -235,13 +199,14 @@ field_label :: proc(
 
 controls_section :: proc(ctx: ^ui.Context) {
 	{
-		ui.container_begin(ctx, ui.layout_auto(.Column, gap = 14))
+		th := ctx.theme
+		ui.container_begin(ctx, ui.layout_auto(.Column, gap = th.spacing.lg))
 		defer ui.container_end(ctx)
 
 		section_label(ctx, "Controls")
 
 		{
-			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 			defer ui.container_end(ctx)
 
 			field_label(ctx, 145, "Button:")
@@ -249,7 +214,7 @@ controls_section :: proc(ctx: ^ui.Context) {
 		}
 
 		{
-			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 			defer ui.container_end(ctx)
 
 			field_label(ctx, 145, "Text Input:")
@@ -259,7 +224,7 @@ controls_section :: proc(ctx: ^ui.Context) {
 		section_label(ctx, "Images")
 
 		{
-			ui.container_begin(ctx, ui.layout_auto(.Row, .Center, .Center, gap = 8))
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Center, .Center, gap = th.spacing.sm))
 			defer ui.container_end(ctx)
 
 			for st, sp in sprite_map {
@@ -271,13 +236,14 @@ controls_section :: proc(ctx: ^ui.Context) {
 
 scrollboxes_section :: proc(ctx: ^ui.Context) {
 	{
-		ui.container_begin(ctx, ui.layout_auto(.Column, gap = 14))
+		th := ctx.theme
+		ui.container_begin(ctx, ui.layout_auto(.Column, gap = th.spacing.lg))
 		defer ui.container_end(ctx)
 
 		section_label(ctx, "Scrollboxes")
 
 		{
-			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 			defer ui.container_end(ctx)
 
 			field_label(ctx, 170, "Content fits:")
@@ -305,7 +271,7 @@ scrollboxes_section :: proc(ctx: ^ui.Context) {
 		}
 
 		{
-			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = 14))
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 			defer ui.container_end(ctx)
 
 			field_label(ctx, 170, "Content scrolls:")
@@ -313,18 +279,19 @@ scrollboxes_section :: proc(ctx: ^ui.Context) {
 			ui.scrollbox_begin(ctx, ui.layout_fixed(250, 92, .Column), &state.scroll2)
 			defer ui.scrollbox_end(ctx)
 
-			button_style := ui.style_get(ctx, ui.Widget_Type_BUTTON)
-			button_style.base.background = ui.Color{140, 140, 140, 255}
-			ui.style_push(ctx, ui.Widget_Type_BUTTON, button_style)
-			defer ui.style_pop(ctx)
-
 			for i in 1 ..= 3 {
 				ui.container_begin(
 					ctx,
 					ui.layout_fixed(230, 42, .Column, .Center, .Center),
 					sub_id = i,
 				)
-				ui.button(ctx, ui.layout_fixed(200, 34), fmt.tprintf("Button %d", i), sub_id = i)
+				ui.button(
+					ctx,
+					ui.layout_fixed(200, 34),
+					fmt.tprintf("Button %d", i),
+					bg = ui.Color{140, 140, 140, 255},
+					sub_id = i,
+				)
 				ui.container_end(ctx)
 			}
 		}
@@ -335,13 +302,13 @@ my_draw :: proc(ctx: ^ui.Context) {
 	prof_frame_part()
 
 	rl.BeginDrawing()
-	rl.ClearBackground(rl.WHITE)
+	rl.ClearBackground(rl.BLACK)
 
 	ci := ui.cmd_iterator_create(ctx)
 	for cmd in ui.cmd_iterator_next(&ci) {
 		switch c in cmd {
 		case ui.Command_Clip:
-			rl.BeginScissorMode(i32(c.rect.x), i32(c.rect.y), i32(c.rect.w), i32(c.rect.h))
+			begin_scissor(c.rect)
 		case ui.Command_Unclip:
 			rl.EndScissorMode()
 		case ui.Command_Rect:
@@ -394,6 +361,14 @@ my_draw :: proc(ctx: ^ui.Context) {
 	}
 
 	rl.DrawFPS(10, 10)
+}
+
+begin_scissor :: proc(r: ui.Rect) {
+	x0 := i32(math.floor(r.x))
+	y0 := i32(math.floor(r.y))
+	x1 := i32(math.ceil(r.x + r.w))
+	y1 := i32(math.ceil(r.y + r.h))
+	rl.BeginScissorMode(x0, y0, x1 - x0, y1 - y0)
 }
 
 measure_width :: proc(data: rawptr, style: ui.Text_Style, text: string) -> f32 {

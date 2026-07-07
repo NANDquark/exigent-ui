@@ -9,14 +9,11 @@ Context :: struct {
 	// persistent data
 	perm_allocator:              mem.Allocator,
 	input_prev, input_curr:      ^Input, // persisted so it can be diffed
-	style_default:               map[Widget_Type]Widget_Style,
+	theme:                       Theme,
+	text_width_data:             rawptr,
+	text_width_fn:               Text_Style_Width_Fn,
 	hovered_widget_id:           Maybe(Widget_ID), // persisted across frames
 	widget_stack:                [dynamic]^Widget,
-	style_stack:                 [dynamic]Widget_Type_Style,
-	// TODO: can text style stack be merged into style stack? Not easily. I
-	// tried this and it creates a bunch of headaches for style push/pop because
-	// now text style can be zero in a bunch of awkward places.
-	text_style_stack:            [dynamic]Text_Style_Type,
 	cmds:                        [dynamic]Command,
 	scrollbox_stack:             [dynamic]^Scrollbox,
 	// temp data
@@ -28,22 +25,25 @@ Context :: struct {
 
 init :: proc(
 	c: ^Context,
+	theme: Theme,
 	atlas_size: int = 4096,
 	perm_allocator := context.allocator,
 	temp_allocator := context.temp_allocator,
 ) {
 	c.atlas_size = atlas_size
+	c.theme = theme
 
 	c.temp_allocator = temp_allocator
 	c.perm_allocator = perm_allocator
 	c.widget_stack = make([dynamic]^Widget, c.perm_allocator)
-	c.style_stack = make([dynamic]Widget_Type_Style, c.perm_allocator)
-	c.text_style_stack = make([dynamic]Text_Style_Type, c.perm_allocator)
 	c.cmds = make([dynamic]Command, c.perm_allocator)
 	c.scrollbox_stack = make([dynamic]^Scrollbox, c.perm_allocator)
 	c.input_prev = input_create(allocator = c.perm_allocator)
 	c.input_curr = input_create(allocator = c.perm_allocator)
-	c.style_default = DEFAULT_STYLES
+}
+
+theme_set :: proc(c: ^Context, theme: Theme) {
+	c.theme = theme
 }
 
 destroy :: proc(c: ^Context) {
@@ -51,8 +51,6 @@ destroy :: proc(c: ^Context) {
 	input_destroy(c.input_prev)
 	input_destroy(c.input_curr)
 	delete(c.widget_stack)
-	delete(c.style_stack)
-	delete(c.text_style_stack)
 	delete(c.cmds)
 	delete(c.scrollbox_stack)
 }
@@ -93,8 +91,6 @@ begin_ex :: proc(
 	clear(&c.cmds)
 	clear(&c.scrollbox_stack)
 	clear(&c.widget_stack)
-	clear(&c.style_stack)
-	clear(&c.text_style_stack)
 
 	root(c, root_layout) // create root widget all builder-code widgets are children of
 
@@ -115,8 +111,6 @@ begin_ex :: proc(
 
 end :: proc(c: ^Context) {
 	assert(len(c.widget_stack) == 0, "every widget_begin must have a widget_end")
-	assert(len(c.style_stack) == 0, "every style_push must have a style_pop")
-	assert(len(c.text_style_stack) == 0, "every text_style_push must have a text_style_pop")
 	assert(len(c.scrollbox_stack) == 0, "every scrollbox must be ended")
 
 	clear(&c.cmds)

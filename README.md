@@ -10,22 +10,27 @@ Layout reserves space for widget borders so they are not clipped by parents.
 Rendering commands are emitted after layout has resolved widget rectangles.
 
 ```odin
+theme := ui.theme_light(font)
+ui.init(ctx, theme = theme)
+ui.text_measure_init(ctx, nil, measure_width)
+
 ui.begin(ctx, width, height, ui.layout_fixed(width, height, .Column, .Center, .Center))
 defer ui.end(ctx)
 
+th := ctx.theme
 ui.panel_begin(
 	ctx,
 	ui.layout_auto(
 		.Column,
 		.Start,
 		.Center,
-		padding = ui.Inset{top = 22, right = 28, bottom = 22, left = 28},
-		gap = 22,
+		padding = ui.Inset{top = th.spacing.xl, right = th.spacing.xl, bottom = th.spacing.xl, left = th.spacing.xl},
+		gap = th.spacing.xl,
 	),
 )
 defer ui.panel_end(ctx)
 
-ui.label(ctx, "Layout showcase")
+ui.label(ctx, "Layout showcase", role = .Title)
 ui.button(ctx, ui.layout_fixed(170, 42), "Click me!")
 ```
 

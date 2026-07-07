@@ -2,6 +2,7 @@ package karl2d_exigent
 
 import ui "exigent:."
 import k2 "karl2d:."
+import "core:math"
 import "core:mem"
 
 Renderer :: struct {
@@ -137,7 +138,7 @@ measure_text :: proc(data: rawptr, style: ui.Text_Style, text: string) -> f32 {
 }
 
 clip_push :: proc(renderer: ^Renderer, rect: ui.Rect) {
-	append(&renderer.clip_stack, to_k2_rect(rect))
+	append(&renderer.clip_stack, scissor_rect(rect))
 	k2.set_scissor_rect(renderer.clip_stack[len(renderer.clip_stack) - 1])
 }
 
@@ -212,6 +213,14 @@ to_k2_rect :: proc(r: ui.Rect) -> k2.Rect {
 
 to_k2_color :: proc(c: ui.Color) -> k2.Color {
 	return k2.Color{c.r, c.g, c.b, c.a}
+}
+
+scissor_rect :: proc(r: ui.Rect) -> k2.Rect {
+	x0 := math.floor(r.x)
+	y0 := math.floor(r.y)
+	x1 := math.ceil(r.x + r.w)
+	y1 := math.ceil(r.y + r.h)
+	return k2.Rect{x = x0, y = y0, w = x1 - x0, h = y1 - y0}
 }
 
 k2_mouse_button_to_ui :: proc(button: k2.Mouse_Button) -> ui.Mouse_Button {
