@@ -84,3 +84,28 @@ odin run . \
 Karl2D currently exposes key and mouse events, but not dedicated text-input
 character events. The adapter feeds key/mouse events directly and synthesizes
 basic ASCII character events from key presses for Exigent text inputs.
+
+## Raylib adapter
+
+This repo also includes an optional `raylib_exigent` package that renders
+Exigent commands through `vendor:raylib`, translates Raylib input into Exigent
+events, measures text through Raylib fonts, and maps Raylib textures to Exigent
+sprite handles.
+
+Run the Raylib demo from the repo root:
+
+```sh
+./demos/raylib/run.sh
+```
+
+For a downstream Raylib project:
+
+```sh
+odin run . \
+	-collection:exigent=/path/to/exigent \
+	-collection:raylib_exigent=/path/to/exigent/raylib_exigent
+```
+
+The adapter owns textures loaded through its `load_sprite_*` helpers when
+`destroy(renderer, true)` is used. Textures registered from a game-owned asset
+cache can use `destroy(renderer, false)` so the game keeps lifetime ownership.

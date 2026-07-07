@@ -1,27 +1,23 @@
 package demo
 
-import ui "../.."
 import "base:runtime"
 import "core:fmt"
-import "core:image"
-import "core:image/png"
-import "core:log"
-import "core:math"
-import "core:strings"
+import ui "exigent:."
+import rlx "exigent:raylib_exigent"
 import rl "vendor:raylib"
 
 WIDTH :: 800
 HEIGHT :: 600
 
 State :: struct {
-	input1:  ui.Text_Input,
-	scroll1: ui.Scrollbox,
-	scroll2: ui.Scrollbox,
+	input1:   ui.Text_Input,
+	scroll1:  ui.Scrollbox,
+	scroll2:  ui.Scrollbox,
+	renderer: rlx.Renderer,
 }
 
 state := State{}
 
-textures: [dynamic]rl.Texture2D
 sprite_map: map[Sprite_Type]ui.Sprite
 
 main :: proc() {
@@ -33,13 +29,18 @@ main :: proc() {
 	rl.SetExitKey(.KEY_NULL)
 	default_font: rl.Font = rl.GetFontDefault()
 
-	textures, sprite_map = preload_sprites()
+	rlx.init(&state.renderer)
+	defer rlx.destroy(&state.renderer, true)
+
+	sprite_map = preload_sprites()
+	defer delete(sprite_map)
 
 	// Initialize UI related context and defaults
 	ctx := &ui.Context{}
 	theme := ui.theme_dark(&default_font)
 	ui.init(ctx, theme = theme)
-	ui.text_measure_init(ctx, nil, measure_width)
+	defer ui.destroy(ctx)
+	ui.text_measure_init(ctx, nil, rlx.measure_text)
 
 	// Initialize persistant widget state
 	input1_buf: [16]u8
@@ -63,88 +64,12 @@ main :: proc() {
 		free_all(context.temp_allocator)
 	}
 
-	ui.destroy(ctx)
 	rl.CloseWindow()
 }
 
 input :: proc(ctx: ^ui.Context) {
 	prof_frame_part()
-
-	events := make([dynamic]ui.Input_Event, 0, 16, context.temp_allocator)
-
-	// Input - Check for released keys.
-	it := ui.input_key_down_iterator(ctx)
-	for key in ui.input_key_down_iterator_next(&it) {
-		rl_key := ui_to_rl_key(key)
-		if rl_key != .KEY_NULL && rl.IsKeyReleased(rl_key) {
-			append(&events, ui.Key_Event{key = key, type = .Released})
-		}
-	}
-
-	// Input - Get all pressed keys this frame.
-	for {
-		rl_key := rl.GetKeyPressed()
-		if rl_key == .KEY_NULL do break
-		ui_key := rl_to_ui_key(rl_key)
-		if ui_key != .None {
-			append(&events, ui.Key_Event{key = ui_key, type = .Pressed})
-		}
-	}
-
-	// Input - text.
-	for {
-		r := rl.GetCharPressed()
-		if r == 0 do break
-		append(&events, ui.Char_Event{c = r})
-	}
-
-	// Input - Mouse edge events.
-	if rl.IsMouseButtonPressed(.LEFT) {
-		append(&events, ui.Mouse_Event{button = .Left, type = .Pressed})
-	}
-	if rl.IsMouseButtonReleased(.LEFT) {
-		append(&events, ui.Mouse_Event{button = .Left, type = .Released})
-	}
-	if rl.IsMouseButtonPressed(.RIGHT) {
-		append(&events, ui.Mouse_Event{button = .Right, type = .Pressed})
-	}
-	if rl.IsMouseButtonReleased(.RIGHT) {
-		append(&events, ui.Mouse_Event{button = .Right, type = .Released})
-	}
-	if rl.IsMouseButtonPressed(.MIDDLE) {
-		append(&events, ui.Mouse_Event{button = .Middle, type = .Pressed})
-	}
-	if rl.IsMouseButtonReleased(.MIDDLE) {
-		append(&events, ui.Mouse_Event{button = .Middle, type = .Released})
-	}
-
-	ui.input_feed_external(
-		ctx,
-		rl.GetMousePosition(),
-		rl.GetMouseWheelMove(),
-		nil,
-		demo_input_is_key_down,
-		demo_input_is_mouse_down,
-		events[:],
-	)
-}
-
-demo_input_is_key_down :: proc(user_data: rawptr, key: ui.Key) -> bool {
-	rl_key := ui_to_rl_key(key)
-	if rl_key == .KEY_NULL do return false
-	return rl.IsKeyDown(rl_key)
-}
-
-demo_input_is_mouse_down :: proc(user_data: rawptr, button: ui.Mouse_Button) -> bool {
-	switch button {
-	case .Left:
-		return rl.IsMouseButtonDown(.LEFT)
-	case .Right:
-		return rl.IsMouseButtonDown(.RIGHT)
-	case .Middle:
-		return rl.IsMouseButtonDown(.MIDDLE)
-	}
-	return false
+	rlx.feed_input(ctx)
 }
 
 update :: proc(ctx: ^ui.Context) {
@@ -304,78 +229,9 @@ my_draw :: proc(ctx: ^ui.Context) {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.BLACK)
 
-	ci := ui.cmd_iterator_create(ctx)
-	for cmd in ui.cmd_iterator_next(&ci) {
-		switch c in cmd {
-		case ui.Command_Clip:
-			begin_scissor(c.rect)
-		case ui.Command_Unclip:
-			rl.EndScissorMode()
-		case ui.Command_Rect:
-			rl_color := rl.Color(c.color)
-			switch c.border.type {
-			case .None:
-				rl.DrawRectangleV(
-					rl.Vector2{c.rect.x, c.rect.y},
-					rl.Vector2{c.rect.w, c.rect.h},
-					rl_color,
-				)
-			case .Square:
-				rl.DrawRectangleV(
-					rl.Vector2{c.rect.x, c.rect.y},
-					rl.Vector2{c.rect.w, c.rect.h},
-					rl_color,
-				)
-				rl.DrawRectangleLinesEx(
-					rl.Rectangle {
-						c.rect.x - c.border.thickness,
-						c.rect.y - c.border.thickness,
-						c.rect.w + c.border.thickness * 2,
-						c.rect.h + c.border.thickness * 2,
-					},
-					f32(c.border.thickness),
-					rl.Color(c.border.color),
-				)
-			}
-		case ui.Command_Text:
-			cstr := strings.clone_to_cstring(c.text, context.temp_allocator)
-			f := cast(^rl.Font)c.style.font
-			rcolor := rl.Color{c.style.color.r, c.style.color.g, c.style.color.b, 255}
-			rl.DrawTextEx(f^, cstr, c.pos, c.style.size, c.style.spacing, rcolor)
-		case ui.Command_Sprite:
-			texture := textures[c.sprite.texture]
-			src := rl.Rectangle {
-				x      = c.sprite.uv.x * f32(texture.width),
-				y      = c.sprite.uv.y * f32(texture.height),
-				width  = c.sprite.uv.w * f32(texture.width),
-				height = c.sprite.uv.h * f32(texture.height),
-			}
-			dst := rl.Rectangle {
-				x      = c.rect.x,
-				y      = c.rect.y,
-				width  = c.rect.w,
-				height = c.rect.h,
-			}
-			rl.DrawTexturePro(texture, src, dst, rl.Vector2{}, 0, rl.WHITE)
-		}
-	}
+	rlx.draw(&state.renderer, ctx)
 
 	rl.DrawFPS(10, 10)
-}
-
-begin_scissor :: proc(r: ui.Rect) {
-	x0 := i32(math.floor(r.x))
-	y0 := i32(math.floor(r.y))
-	x1 := i32(math.ceil(r.x + r.w))
-	y1 := i32(math.ceil(r.y + r.h))
-	rl.BeginScissorMode(x0, y0, x1 - x0, y1 - y0)
-}
-
-measure_width :: proc(data: rawptr, style: ui.Text_Style, text: string) -> f32 {
-	cstr := strings.clone_to_cstring(text, context.temp_allocator)
-	f := cast(^rl.Font)style.font
-	m := rl.MeasureTextEx(f^, cstr, style.size, style.spacing)
-	return m.x
 }
 
 Sprite_Type :: enum {
@@ -387,9 +243,8 @@ Sprite_Type :: enum {
 	Crop_Icon,
 }
 
-preload_sprites :: proc() -> ([dynamic]rl.Texture2D, map[Sprite_Type]ui.Sprite) {
+preload_sprites :: proc() -> map[Sprite_Type]ui.Sprite {
 	sprite_map := make(map[Sprite_Type]ui.Sprite)
-	textures := make([dynamic]rl.Texture2D)
 
 	icons := map[Sprite_Type]string{}
 	icons[.Alert_Icon] = "demos/raylib/res/icons/symbol alert.png"
@@ -400,32 +255,8 @@ preload_sprites :: proc() -> ([dynamic]rl.Texture2D, map[Sprite_Type]ui.Sprite) 
 	icons[.Crop_Icon] = "demos/raylib/res/icons/symbol crop resize.png"
 
 	for type, fp in icons {
-		img, load_err := png.load_from_file(fp, png.Options{})
-		if load_err != nil {
-			panic(fmt.tprintf("failed to load %s, err=%v", fp, load_err))
-		}
-		ui_img, convert_err := ui.image_convert_from_image(img)
-		if convert_err != nil {
-			log.errorf("failed to convert img, err=%v", convert_err)
-		}
-		image.destroy(img)
-		rl_img := rl.Image {
-			data    = raw_data(ui_img.pixels),
-			width   = i32(ui_img.width),
-			height  = i32(ui_img.height),
-			mipmaps = 1,
-			format  = rl.PixelFormat.UNCOMPRESSED_R8G8B8A8,
-		}
-		rl_texture := rl.LoadTextureFromImage(rl_img)
-		texture_idx := len(textures)
-		append(&textures, rl_texture)
-		sprite_map[type] = ui.Sprite {
-			texture = ui.Texture_Handle(texture_idx),
-			uv      = {0, 0, 1, 1},
-			width   = ui_img.width,
-			height  = ui_img.height,
-		}
+		sprite_map[type] = rlx.load_sprite_from_file(&state.renderer, fp)
 	}
 
-	return textures, sprite_map
+	return sprite_map
 }

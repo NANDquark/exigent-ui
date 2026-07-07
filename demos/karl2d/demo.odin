@@ -2,8 +2,8 @@ package demo_karl2d
 
 import "core:fmt"
 import ui "exigent:."
+import k2e "exigent:karl2d_exigent"
 import k2 "karl2d:."
-import k2e "karl2d_exigent:."
 
 WIDTH :: 800
 HEIGHT :: 600
