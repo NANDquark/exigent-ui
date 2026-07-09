@@ -30,16 +30,13 @@ main :: proc() {
 	default_font: rl.Font = rl.GetFontDefault()
 
 	rlx.init(&state.renderer)
-	defer rlx.destroy(&state.renderer, true)
 
 	sprite_map = preload_sprites()
-	defer delete(sprite_map)
 
 	// Initialize UI related context and defaults
 	ctx := &ui.Context{}
 	theme := ui.theme_dark(&default_font)
 	ui.init(ctx, theme = theme)
-	defer ui.destroy(ctx)
 	ui.text_measure_init(ctx, nil, rlx.measure_text)
 
 	// Initialize persistant widget state
@@ -64,6 +61,9 @@ main :: proc() {
 		free_all(context.temp_allocator)
 	}
 
+	ui.destroy(ctx)
+	delete(sprite_map)
+	rlx.destroy(&state.renderer, true)
 	rl.CloseWindow()
 }
 
@@ -138,6 +138,14 @@ controls_section :: proc(ctx: ^ui.Context) {
 
 			field_label(ctx, 145, "Button:")
 			ui.button(ctx, ui.layout_fixed(170, 42), "Click me!")
+		}
+
+		{
+			ui.container_begin(ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
+			defer ui.container_end(ctx)
+
+			field_label(ctx, 145, "Disabled:")
+			ui.button(ctx, ui.layout_fixed(170, 42), "Unavailable", disabled = true)
 		}
 
 		{

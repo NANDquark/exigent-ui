@@ -25,11 +25,9 @@ main :: proc() {
 	default_font := rl.GetFontDefault()
 
 	ui.init(&state.ctx, ui.theme_dark(&default_font))
-	defer ui.destroy(&state.ctx)
 	ui.text_measure_init(&state.ctx, nil, rlx.measure_text)
 
 	rlx.init(&state.renderer)
-	defer rlx.destroy(&state.renderer, true)
 	state.selected_slot = 1
 
 	for !state.quit && !rl.WindowShouldClose() {
@@ -39,6 +37,8 @@ main :: proc() {
 		free_all(context.temp_allocator)
 	}
 
+	rlx.destroy(&state.renderer, true)
+	ui.destroy(&state.ctx)
 	rl.CloseWindow()
 }
 

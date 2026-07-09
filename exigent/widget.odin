@@ -205,6 +205,7 @@ layer_pick :: proc(
 }
 
 Widget_Interaction :: struct {
+	disabled: bool,
 	hovered:  bool,
 	down:     bool, // held down for one or more frames
 	pressed:  bool, // single frame mouse press down
@@ -329,36 +330,42 @@ button :: proc(
 	background_image := Sprite{},
 	bg_color: Color = {},
 	text_color: Color = {},
+	disabled := false,
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
-	widget_begin(c, layout, caller = caller, sub_id = sub_id)
+	widget_begin(c, layout, interactable = !disabled, caller = caller, sub_id = sub_id)
 	defer widget_end(c)
 
-	text_color := c.theme.color.on_primary
-	if text_color != {} {
-		text_color = text_color
-	}
+	button_text_color := text_color if text_color != {} else c.theme.color.on_primary
 
-	if c.widget_curr.interaction.down {
+	if disabled {
+		c.widget_curr.interaction.disabled = true
+		button_text_color = c.theme.color.fg_muted
+	} else if c.widget_curr.interaction.down {
 		c.widget_curr.draw_offset = {1, 1}
 	}
 
 	if background_image != {} {
 		sprite(c, background_image, Rect{})
+		if disabled {
+			rect(c, Rect{}, Color{c.theme.color.surface.r, c.theme.color.surface.g, c.theme.color.surface.b, 180})
+		}
 	} else {
 		background_color := bg_color if bg_color != {} else c.theme.color.primary
-		if is_active(c) {
-			color_blend(background_color, c.theme.color.on_primary, 0.12)
+		if disabled {
+			background_color = color_blend(background_color, c.theme.color.surface, 0.72)
+		} else if is_active(c) {
+			background_color = color_blend(background_color, c.theme.color.on_primary, 0.12)
 		} else if is_hovered(c) {
-			color_blend(background_color, Color{0, 0, 0, background_color.a}, 0.18)
+			background_color = color_blend(background_color, Color{0, 0, 0, background_color.a}, 0.18)
 		}
 		background(c, background_color)
 		border(c, {type = .Square, thickness = 1, color = c.theme.color.border})
 	}
 
 	if len(txt) > 0 {
-		text(c, txt, Text_Align_H.Center, Text_Align_V.Center, text_style(c, .Body, text_color))
+		text(c, txt, Text_Align_H.Center, Text_Align_V.Center, text_style(c, .Body, button_text_color))
 	}
 
 	return c.widget_curr.interaction

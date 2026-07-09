@@ -146,6 +146,11 @@ controls_section :: proc() {
 	ui.container_end(&state.ctx)
 
 	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
+	field_label(145, "Disabled:")
+	ui.button(&state.ctx, ui.layout_fixed(170, 42), "Unavailable", disabled = true)
+	ui.container_end(&state.ctx)
+
+	ui.container_begin(&state.ctx, ui.layout_auto(.Row, .Start, .Center, gap = th.spacing.lg))
 	field_label(145, "Text Input:")
 	ui.text_input(&state.ctx, ui.layout_fixed(220, 36), &state.input)
 	ui.container_end(&state.ctx)

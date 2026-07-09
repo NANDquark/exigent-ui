@@ -57,6 +57,16 @@ test_expect_rect_command_order :: proc(t: ^testing.T, c: ^Context, colors: []Col
 	testing.expect_value(t, idx, len(colors))
 }
 
+test_prime_button_hover :: proc(c: ^Context, disabled := false) {
+	test_input_mouse_pos(c, {5, 5})
+	begin(c, 100, 100)
+	layer_begin(c, layout_fixed(100, 100))
+	button(c, layout_fixed(40, 20), "A", disabled = disabled)
+	layer_end(c)
+	end(c)
+	free_all(c.temp_allocator)
+}
+
 @(test)
 test_widget_begin_requires_layer :: proc(t: ^testing.T) {
 	testing.expect_assert(t, "widget_begin without layer_begin")
@@ -153,6 +163,70 @@ test_overlapping_widgets_pick_later_layer_first :: proc(t: ^testing.T) {
 	hovered, ok := c.hovered_widget_id.?
 	testing.expect(t, ok)
 	testing.expect_value(t, hovered, top_button.id)
+	free_all(c.temp_allocator)
+}
+
+@(test)
+test_disabled_button_reports_disabled_without_mouse_interaction :: proc(t: ^testing.T) {
+	c := test_layout_context_create()
+	defer fixture_context_delete(c)
+
+	test_prime_button_hover(c, disabled = true)
+	test_input_mouse_down(c, .Left)
+
+	begin(c, 100, 100)
+	layer_begin(c, layout_fixed(100, 100))
+	interaction := button(c, layout_fixed(40, 20), "A", disabled = true)
+	layer_end(c)
+	end(c)
+
+	_, active := c.active_widget_id.?
+	testing.expect(t, interaction.disabled)
+	testing.expect(t, !interaction.hovered)
+	testing.expect(t, !interaction.down)
+	testing.expect(t, !interaction.pressed)
+	testing.expect(t, !interaction.released)
+	testing.expect(t, !active)
+	free_all(c.temp_allocator)
+}
+
+@(test)
+test_disabled_button_draws_muted_style :: proc(t: ^testing.T) {
+	c := test_layout_context_create()
+	defer fixture_context_delete(c)
+
+	begin(c, 100, 100)
+	layer_begin(c, layout_fixed(100, 100))
+	interaction := button(c, layout_fixed(70, 20), "A", disabled = true)
+	layer_end(c)
+	end(c)
+
+	expected_bg := color_blend(c.theme.color.primary, c.theme.color.surface, 0.72)
+	found_bg := false
+	found_text := false
+
+	it := cmd_iterator_create(c)
+	for cmd in cmd_iterator_next(&it) {
+		switch v in cmd {
+		case Command_Rect:
+			if v.rect.w == 70 && v.rect.h == 20 {
+				testing.expect_value(t, v.color, expected_bg)
+				found_bg = true
+			}
+		case Command_Text:
+			if v.text == "A" {
+				testing.expect_value(t, v.style.color, c.theme.color.fg_muted)
+				found_text = true
+			}
+		case Command_Clip:
+		case Command_Unclip:
+		case Command_Sprite:
+		}
+	}
+
+	testing.expect(t, interaction.disabled)
+	testing.expect(t, found_bg)
+	testing.expect(t, found_text)
 	free_all(c.temp_allocator)
 }
 
