@@ -1,3 +1,5 @@
+#+build !js
+
 package exigent
 
 import "core:testing"
@@ -75,17 +77,17 @@ test_theme_with_primary_updates_accent_tokens :: proc(t: ^testing.T) {
 	testing.expect_value(t, th.color.selection, Color{20, 40, 80, 77})
 }
 
-@(test)
-test_style_get_reads_current_context_theme :: proc(t: ^testing.T) {
-	c := fixture_context_create()
-	defer fixture_context_delete(c)
+// @(test)
+// test_style_get_reads_current_context_theme :: proc(t: ^testing.T) {
+// 	c := fixture_context_create()
+// 	defer fixture_context_delete(c)
 
-	theme := theme_light(nil)
-	theme.color.primary = Color{11, 22, 33, 255}
-	theme.color.border = Color{44, 55, 66, 255}
-	theme_set(c, theme)
+// 	theme := theme_light(nil)
+// 	theme.color.primary = Color{11, 22, 33, 255}
+// 	theme.color.border = Color{44, 55, 66, 255}
+// 	theme_set(c, theme)
 
-	button_style := style_get(c, Widget_Type_BUTTON)
-	testing.expect_value(t, button_style.base.background, theme.color.primary)
-	testing.expect_value(t, button_style.base.border.color, theme.color.border)
-}
+// 	button_style := style_get(c, Widget_Type_BUTTON)
+// 	testing.expect_value(t, button_style.base.background, theme.color.primary)
+// 	testing.expect_value(t, button_style.base.border.color, theme.color.border)
+// }

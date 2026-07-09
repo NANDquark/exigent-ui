@@ -98,6 +98,16 @@ Run the Raylib demo from the repo root:
 ./demos/raylib/run.sh
 ```
 
+Build the Raylib web smoke demo from the repo root:
+
+```sh
+./demos/raylib_web/build.sh
+```
+
+The script builds `demos/raylib_web` for Odin's `js_wasm32` target, links it
+with Odin's vendored raylib WASM archive through Emscripten, and writes the
+result to `build/raylib_web`.
+
 For a downstream Raylib project:
 
 ```sh
@@ -105,6 +115,25 @@ odin run . \
 	-collection:exigent=/path/to/exigent \
 	-collection:raylib_exigent=/path/to/exigent/raylib_exigent
 ```
+
+For a downstream Raylib web build, use the same collections and compile the
+game entry package as a `js_wasm32` object with Odin's raylib WASM import name:
+
+```sh
+odin build src/main_web \
+	-target:js_wasm32 \
+	-build-mode:obj \
+	-no-entry-point \
+	-define:RAYLIB_WASM_LIB=env.o \
+	-collection:exigent=/path/to/exigent \
+	-collection:raylib_exigent=/path/to/exigent/raylib_exigent \
+	-out:build/web/game.wasm.o
+```
+
+Then link that object with `$(odin root)/vendor/raylib/wasm/libraylib.a` using
+`emcc`, matching the lifecycle exports used by the game's web shell. Include
+`-sALLOW_MEMORY_GROWTH=1` so Odin's WASM allocator can grow memory at runtime
+and `-sASYNCIFY=1` so raylib's web backend can use its asynchronous wait path.
 
 The adapter owns textures loaded through its `load_sprite_*` helpers when
 `destroy(renderer, true)` is used. Textures registered from a game-owned asset

@@ -7,10 +7,6 @@ rect :: proc(c: ^Context, r: Rect, color: Color, border := Border_Style{}) {
 	append(&c.widget_curr.draw_cmds, Widget_Draw_Rect{rect = r, color = color, border = border})
 }
 
-background :: proc(c: ^Context) {
-	append(&c.widget_curr.draw_cmds, Widget_Draw_Background{})
-}
-
 // Draw a horizontal line relative to the current widget's resolved rect.
 line_h :: proc(c: ^Context, x_start, x_end, y: f32, thickness: f32, color: Color) {
 	x_min := min(x_start, x_end)
@@ -66,12 +62,7 @@ text_aligned :: proc(
 	if style == {} do style = text_style_curr(c)
 	append(
 		&c.widget_curr.draw_cmds,
-		Widget_Draw_Text {
-			text = text,
-			h_align = h_align,
-			v_align = v_align,
-			style = style,
-		},
+		Widget_Draw_Text{text = text, h_align = h_align, v_align = v_align, style = style},
 	)
 }
 

@@ -109,15 +109,24 @@ build_ui :: proc() {
 }
 
 title_label :: proc(txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.label(&state.ctx, txt, .Left, .Top, caller, sub_id, role = .Title)
+	ui.label(&state.ctx, txt, .Left, .Top, role = .Title, caller = caller, sub_id = sub_id)
 }
 
 section_label :: proc(txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.label(&state.ctx, txt, .Left, .Top, caller, sub_id, role = .Section)
+	ui.label(&state.ctx, txt, .Left, .Top, role = .Section, caller = caller, sub_id = sub_id)
+
 }
 
 field_label :: proc(width: f32, txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.label_sized(&state.ctx, ui.layout_fixed(width, 34), txt, .Right, .Center, caller, sub_id)
+	ui.label_sized(
+		&state.ctx,
+		ui.layout_fixed(width, 34),
+		txt,
+		.Right,
+		.Center,
+		caller = caller,
+		sub_id = sub_id,
+	)
 }
 
 controls_section :: proc() {
@@ -172,7 +181,7 @@ scroll_section :: proc() {
 			&state.ctx,
 			ui.layout_fixed(200, 34),
 			fmt.tprintf("Button %d", i),
-			bg = ui.Color{140, 140, 140, 255},
+			bg_color = ui.Color{140, 140, 140, 255},
 			sub_id = i,
 		)
 		ui.container_end(&state.ctx)

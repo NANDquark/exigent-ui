@@ -7,6 +7,13 @@ import "core:mem"
 import "core:strings"
 import rl "vendor:raylib"
 
+when ODIN_OS == .JS {
+	foreign import env "env"
+	foreign env {
+		emscripten_notify_memory_growth :: proc "c" (memory_index: int) ---
+	}
+}
+
 Renderer :: struct {
 	textures:            map[ui.Texture_Handle]rl.Texture2D,
 	next_texture_handle: ui.Texture_Handle,
@@ -43,6 +50,7 @@ register_texture :: proc(renderer: ^Renderer, texture: rl.Texture2D) -> ui.Textu
 
 load_sprite_from_file :: proc(renderer: ^Renderer, filename: string) -> ui.Sprite {
 	c_filename := strings.clone_to_cstring(filename, context.temp_allocator)
+	notify_memory_growth()
 	texture := rl.LoadTexture(c_filename)
 	if !rl.IsTextureValid(texture) {
 		return {}
@@ -201,6 +209,7 @@ feed_input :: proc(ctx: ^ui.Context) {
 
 measure_text :: proc(data: rawptr, style: ui.Text_Style, text: string) -> f32 {
 	c_text := strings.clone_to_cstring(text, context.temp_allocator)
+	notify_memory_growth()
 	font := rl.GetFontDefault()
 	if style.font != nil {
 		font = (cast(^rl.Font)style.font)^
@@ -270,6 +279,7 @@ draw_rect :: proc(cmd: ui.Command_Rect) {
 
 draw_text :: proc(cmd: ui.Command_Text) {
 	c_text := strings.clone_to_cstring(cmd.text, context.temp_allocator)
+	notify_memory_growth()
 	font := rl.GetFontDefault()
 	if cmd.style.font != nil {
 		font = (cast(^rl.Font)cmd.style.font)^
@@ -314,6 +324,12 @@ to_rl_rect :: proc(r: ui.Rect) -> rl.Rectangle {
 
 to_rl_color :: proc(color: ui.Color) -> rl.Color {
 	return rl.Color{color.r, color.g, color.b, color.a}
+}
+
+notify_memory_growth :: proc() {
+	when ODIN_OS == .JS {
+		emscripten_notify_memory_growth(0)
+	}
 }
 
 scissor_rect :: proc(r: ui.Rect) -> rl.Rectangle {

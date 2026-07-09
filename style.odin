@@ -41,12 +41,6 @@ Theme_Font :: struct {
 	size_display: f32,
 }
 
-Widget_Style :: struct {
-	base:   Style,
-	hover:  Style,
-	active: Style,
-}
-
 Style :: struct {
 	background:      Color,
 	border:          Border_Style,
@@ -161,6 +155,16 @@ color_blend :: proc(c1, c2: Color, t: f32) -> (cb: Color) {
 	return cb
 }
 
+// Darken color c1 by blending with t percent of black
+color_darken :: proc(c1: Color, t: f32) -> Color {
+	return color_blend(c1, Color{0, 0, 0, c1.a}, t)
+}
+
+// Lighten color c1 by blending with t percent of white
+color_lighten :: proc(c1: Color, t: f32) -> Color {
+	return color_blend(c1, Color{255, 255, 255, c1.a}, t)
+}
+
 color_luminance :: proc(c: Color) -> f32 {
 	return (f32(c.r) * 0.2126 + f32(c.g) * 0.7152 + f32(c.b) * 0.0722) / 255.0
 }
@@ -176,56 +180,10 @@ color_contrast :: proc(c: Color) -> Color {
 	return color_blend(c, overlay, t)
 }
 
-style_get :: proc(c: ^Context, type: Widget_Type) -> Widget_Style {
-	assert(type != Widget_Type_NONE, "invalid widget type (0)")
-	th := &c.theme
+style_get :: proc(c: ^Context) -> Style {
+	return c.widget_curr.style
+}
 
-	if type == Widget_Type_ROOT || type == Widget_Type_CONTAINER || type == Widget_Type_LABEL {
-		return Widget_Style{}
-	}
-	if type == Widget_Type_PANEL {
-		return Widget_Style {
-			base = Style {
-				background = th.color.surface,
-				border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
-			},
-		}
-	}
-	if type == Widget_Type_BUTTON {
-		base := Style {
-			background = th.color.primary,
-			border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
-		}
-		return Widget_Style {
-			base = base,
-			hover = Style {
-				background = color_blend(base.background, th.color.on_primary, 0.12),
-				border = base.border,
-			},
-			active = Style {
-				background = color_blend(base.background, Color{0, 0, 0, base.background.a}, 0.18),
-				border = base.border,
-			},
-		}
-	}
-	if type == Widget_Type_TEXT_INPUT {
-		return Widget_Style {
-			base = Style {
-				background = th.color.elevated,
-				border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
-			},
-		}
-	}
-	if type == Widget_Type_SCROLLBOX {
-		return Widget_Style {
-			base = Style {
-				background = th.color.surface,
-				border = Border_Style{type = .Square, thickness = 1, color = th.color.border},
-				scrollbar_width = th.spacing.lg,
-				scrollbar_alpha = 185,
-			},
-		}
-	}
-
-	return Widget_Style{}
+style_set :: proc(c: ^Context, style: Style) {
+	c.widget_curr.style = style
 }

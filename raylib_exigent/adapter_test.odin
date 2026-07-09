@@ -1,3 +1,5 @@
+#+build !js
+
 package raylib_exigent
 
 import ui "../"

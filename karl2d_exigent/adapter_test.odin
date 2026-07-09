@@ -1,3 +1,5 @@
+#+build !js
+
 package karl2d_exigent
 
 import ui "../"

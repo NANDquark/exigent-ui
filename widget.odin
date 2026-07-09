@@ -6,21 +6,21 @@ import "core:mem"
 import "core:time"
 
 Widget :: struct {
-	id:          Widget_ID,
-	type:        Widget_Type,
-	parent:      ^Widget,
-	children:    [dynamic]^Widget,
-	layout:      Layout,
-	measured_size: [2]f32,
-	content_size:  [2]f32,
+	id:             Widget_ID,
+	// type:           Widget_Type,
+	parent:         ^Widget,
+	children:       [dynamic]^Widget,
+	layout:         Layout,
+	measured_size:  [2]f32,
+	content_size:   [2]f32,
 	intrinsic_size: [2]f32,
-	rect:        Rect, // The inner size of the widget
-	clip:        Rect, // The outer size (with borders) of the widget, used for clipping
-	style:       Style,
-	interaction: Widget_Interaction,
-	draw_cmds:   [dynamic]Widget_Draw_Command,
-	draw_offset: [2]f32,
-	scrollbox:   ^Scrollbox,
+	rect:           Rect, // The inner size of the widget
+	clip:           Rect, // The outer size (with borders) of the widget, used for clipping
+	style:          Style,
+	interaction:    Widget_Interaction,
+	draw_cmds:      [dynamic]Widget_Draw_Command,
+	draw_offset:    [2]f32,
+	scrollbox:      ^Scrollbox,
 }
 
 Widget_Draw_Command :: union {
@@ -53,28 +53,19 @@ Widget_Draw_Sprite :: struct {
 
 widget_begin :: proc(
 	c: ^Context,
-	type: Widget_Type,
 	layout: Layout,
+	interactable := true,
 	caller: runtime.Source_Code_Location,
 	sub_id: int = 0,
 ) {
 	w := new(Widget, c.temp_allocator)
 	id := widget_create_id(c, caller, sub_id)
 	w.id = id
-	w.type = type
 	w.layout = layout
 
-	if type != Widget_Type_ROOT {
+	if interactable {
 		w.interaction = widget_interaction(c, id)
 	}
-	widget_style := style_get(c, type)
-	style := widget_style.base
-	if w.id == c.active_widget_id && widget_style.active != {} {
-		style = widget_style.active
-	} else if w.id == c.hovered_widget_id && widget_style.hover != {} {
-		style = widget_style.hover
-	}
-	w.style = style
 
 	w.children.allocator = c.temp_allocator
 	w.draw_cmds.allocator = c.temp_allocator
@@ -191,71 +182,72 @@ widget_interaction :: proc(c: ^Context, id: Widget_ID) -> Widget_Interaction {
 	return Widget_Interaction{}
 }
 
-Widget_Type :: distinct i32
-Widget_Type_NONE := Widget_Type(0)
-
-widget_register :: proc "contextless" (style: Widget_Style = {}) -> Widget_Type {
-	@(static) next_type := 1
-	next_type += 1
-	wt := Widget_Type(next_type)
-	return wt
+background :: proc(c: ^Context, color: Color) {
+	style := style_get(c)
+	style.background = color
+	style_set(c, style)
+	append(&c.widget_curr.draw_cmds, Widget_Draw_Background{})
 }
 
-Widget_Type_ROOT := widget_register()
+border :: proc(c: ^Context, border: Border_Style) {
+	style := style_get(c)
+	style.border = border
+	style_set(c, style)
+}
+
+scrollbar :: proc(c: ^Context, width: f32, alpha: u8) {
+	style := style_get(c)
+	style.scrollbar_width = width
+	style.scrollbar_alpha = alpha
+	style_set(c, style)
+}
+
+is_active :: proc(c: ^Context) -> bool {
+	return c.widget_curr.id == c.active_widget_id
+}
+
+is_hovered :: proc(c: ^Context) -> bool {
+	return c.widget_curr.id == c.hovered_widget_id
+}
+
 root :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, Widget_Type_ROOT, layout, caller, sub_id)
+	widget_begin(c, layout, false, caller, sub_id)
 }
 
-Widget_Type_CONTAINER := widget_register()
-container_begin :: proc(
-	c: ^Context,
-	layout: Layout,
-	caller := #caller_location,
-	sub_id: int = 0,
-) {
-	widget_begin(c, Widget_Type_CONTAINER, layout, caller, sub_id)
+container_begin :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
+	widget_begin(c, layout, caller = caller, sub_id = sub_id)
 }
 
 container_end :: proc(c: ^Context) {
 	widget_end(c)
 }
 
-Widget_Type_PANEL := widget_register()
 panel_begin :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, Widget_Type_PANEL, layout, caller, sub_id)
-	background(c)
+	widget_begin(c, layout, caller = caller, sub_id = sub_id)
+	background(c, c.theme.color.surface)
+	border(c, {type = .Square, thickness = 1, color = c.theme.color.border})
 }
 
 panel_end :: proc(c: ^Context) {
 	widget_end(c)
 }
 
-panel :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
-	panel_begin(c, layout, caller, sub_id)
-	panel_end(c)
-}
-
-
-Widget_Type_BUTTON := widget_register()
 button :: proc(
 	c: ^Context,
 	layout: Layout,
 	txt: string,
 	background_image := Sprite{},
-	bg: Color = {},
-	fg: Color = {},
+	bg_color: Color = {},
+	text_color: Color = {},
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
-	widget_begin(c, Widget_Type_BUTTON, layout, caller, sub_id)
+	widget_begin(c, layout, caller = caller, sub_id = sub_id)
 	defer widget_end(c)
 
 	text_color := c.theme.color.on_primary
-	if bg != {} {
-		c.widget_curr.style.background = bg
-	}
-	if fg != {} {
-		text_color = fg
+	if text_color != {} {
+		text_color = text_color
 	}
 
 	if c.widget_curr.interaction.down {
@@ -265,8 +257,16 @@ button :: proc(
 	if background_image != {} {
 		sprite(c, background_image, Rect{})
 	} else {
-		background(c)
+		background_color := bg_color if bg_color != {} else c.theme.color.primary
+		if is_active(c) {
+			color_blend(background_color, c.theme.color.on_primary, 0.12)
+		} else if is_hovered(c) {
+			color_blend(background_color, Color{0, 0, 0, background_color.a}, 0.18)
+		}
+		background(c, background_color)
+		border(c, {type = .Square, thickness = 1, color = c.theme.color.border})
 	}
+
 	if len(txt) > 0 {
 		text(c, txt, Text_Align_H.Center, Text_Align_V.Center, text_style(c, .Body, text_color))
 	}
@@ -274,17 +274,16 @@ button :: proc(
 	return c.widget_curr.interaction
 }
 
-Widget_Type_LABEL := widget_register()
 label :: proc(
 	c: ^Context,
 	txt: string,
 	h_align: Text_Align_H = .Left,
 	v_align: Text_Align_V = .Top,
+	role: Text_Role = .Body,
 	caller := #caller_location,
 	sub_id: int = 0,
-	role: Text_Role = .Body,
 ) {
-	widget_begin(c, Widget_Type_LABEL, layout_intrinsic(), caller, sub_id)
+	widget_begin(c, layout_intrinsic(), caller = caller, sub_id = sub_id)
 	text_style := text_style(c, role)
 	c.widget_curr.intrinsic_size = {text_width_style(c, text_style, txt), text_style.line_height}
 	text(c, txt, h_align, v_align, text_style)
@@ -297,11 +296,11 @@ label_sized :: proc(
 	txt: string,
 	h_align: Text_Align_H = .Left,
 	v_align: Text_Align_V = .Top,
+	role: Text_Role = .Body,
 	caller := #caller_location,
 	sub_id: int = 0,
-	role: Text_Role = .Body,
 ) {
-	widget_begin(c, Widget_Type_LABEL, layout, caller, sub_id)
+	widget_begin(c, layout, caller = caller, sub_id = sub_id)
 	text(c, txt, h_align, v_align, text_style(c, role))
 	widget_end(c)
 }
@@ -314,7 +313,6 @@ Text_Input :: struct {
 
 BLINK_RATE_DEFAULT: time.Duration : 750 * time.Millisecond
 
-Widget_Type_TEXT_INPUT := widget_register()
 text_input :: proc(
 	c: ^Context,
 	layout: Layout,
@@ -322,7 +320,7 @@ text_input :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
-	widget_begin(c, Widget_Type_TEXT_INPUT, layout, caller, sub_id)
+	widget_begin(c, layout, caller = caller, sub_id = sub_id)
 	defer widget_end(c)
 
 	if c.widget_curr.interaction.released {
@@ -332,7 +330,8 @@ text_input :: proc(
 
 	txt := text_buffer_to_string(&data.text)
 
-	background(c)
+	background(c, c.theme.color.elevated)
+	border(c, {type = .Square, thickness = 1, color = c.theme.color.border})
 	offset := [2]f32{c.theme.spacing.sm, c.theme.spacing.sm}
 	input_text_style := text_style_curr(c)
 	if len(txt) > 0 do text(c, txt, offset, input_text_style)
@@ -356,13 +355,13 @@ image :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) {
-	widget_begin(c, Widget_Type_CONTAINER, layout, caller, sub_id)
+	widget_begin(c, layout, caller = caller, sub_id = sub_id)
 	sprite(c, sp, Rect{})
 	widget_end(c)
 }
 
 spacer :: proc(c: ^Context, width, height: f32, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, Widget_Type_CONTAINER, layout_fixed(width, height), caller, sub_id)
+	widget_begin(c, layout_fixed(width, height), caller = caller, sub_id = sub_id)
 	widget_end(c)
 }
 
@@ -373,7 +372,6 @@ Scrollbox :: struct {
 	_w:             ^Widget,
 }
 
-Widget_Type_SCROLLBOX := widget_register()
 scrollbox_begin :: proc(
 	c: ^Context,
 	layout: Layout,
@@ -381,11 +379,16 @@ scrollbox_begin :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) {
-	widget_begin(c, Widget_Type_SCROLLBOX, layout, caller, sub_id)
+	widget_begin(c, layout, caller = caller, sub_id = sub_id)
 
 	data._w = c.widget_curr
 	c.widget_curr.scrollbox = data
-	background(c)
+	background(
+		c,
+		color_blend(c.theme.color.surface, Color{0, 0, 0, c.theme.color.surface.a}, 0.14),
+	)
+	border(c, {type = .Square, thickness = 1, color = c.theme.color.border})
+	scrollbar(c, c.theme.spacing.lg, 185)
 
 	append(&c.scrollbox_stack, data)
 }

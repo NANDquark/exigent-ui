@@ -1,3 +1,5 @@
+#+build !js
+
 package exigent
 
 import "base:runtime"
@@ -199,41 +201,41 @@ test_layout_commands_use_resolved_geometry :: proc(t: ^testing.T) {
 	free_all(c.temp_allocator)
 }
 
-@(test)
-test_custom_widget_type_can_emit_deferred_draw_commands :: proc(t: ^testing.T) {
-	c := test_layout_context_create()
-	defer fixture_context_delete(c)
+// @(test)
+// test_custom_widget_type_can_emit_deferred_draw_commands :: proc(t: ^testing.T) {
+// 	c := test_layout_context_create()
+// 	defer fixture_context_delete(c)
 
-	Custom_Widget_Type := widget_register(Widget_Style{})
-	color := Color{1, 2, 3, 255}
+// 	Custom_Widget_Type := widget_register(Widget_Style{})
+// 	color := Color{1, 2, 3, 255}
 
-	begin(c, 200, 100)
-	container_begin(c, layout_fixed(100, 50, .Column, .Center, .Center), sub_id = 1)
-	widget_begin(c, Custom_Widget_Type, layout_fixed(30, 20), runtime.Source_Code_Location{}, 1)
-	rect(c, Rect{5, 6, 10, 11}, color)
-	widget_end(c)
-	container_end(c)
-	end(c)
+// 	begin(c, 200, 100)
+// 	container_begin(c, layout_fixed(100, 50, .Column, .Center, .Center), sub_id = 1)
+// 	widget_begin(c, Custom_Widget_Type, layout_fixed(30, 20), runtime.Source_Code_Location{}, 1)
+// 	rect(c, Rect{5, 6, 10, 11}, color)
+// 	widget_end(c)
+// 	container_end(c)
+// 	end(c)
 
-	found_custom_rect := false
-	expected := Rect{40, 21, 10, 11}
-	it := cmd_iterator_create(c)
-	for cmd in cmd_iterator_next(&it) {
-		switch v in cmd {
-		case Command_Rect:
-			if v.rect == expected && v.color == color {
-				found_custom_rect = true
-			}
-		case Command_Text:
-		case Command_Clip:
-		case Command_Unclip:
-		case Command_Sprite:
-		}
-	}
+// 	found_custom_rect := false
+// 	expected := Rect{40, 21, 10, 11}
+// 	it := cmd_iterator_create(c)
+// 	for cmd in cmd_iterator_next(&it) {
+// 		switch v in cmd {
+// 		case Command_Rect:
+// 			if v.rect == expected && v.color == color {
+// 				found_custom_rect = true
+// 			}
+// 		case Command_Text:
+// 		case Command_Clip:
+// 		case Command_Unclip:
+// 		case Command_Sprite:
+// 		}
+// 	}
 
-	testing.expect(t, found_custom_rect)
-	free_all(c.temp_allocator)
-}
+// 	testing.expect(t, found_custom_rect)
+// 	free_all(c.temp_allocator)
+// }
 
 
 @(test)

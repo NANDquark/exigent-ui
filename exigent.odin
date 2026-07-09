@@ -79,11 +79,7 @@ begin_default :: proc(c: ^Context, screen_width, screen_height: int) {
 	begin_ex(c, screen_width, screen_height, layout_fixed(f32(screen_width), f32(screen_height)))
 }
 
-begin_ex :: proc(
-	c: ^Context,
-	screen_width, screen_height: int,
-	root_layout: Layout,
-) {
+begin_ex :: proc(c: ^Context, screen_width, screen_height: int, root_layout: Layout) {
 	c.screen_width = screen_width
 	c.screen_height = screen_height
 	c.widget_root = nil
