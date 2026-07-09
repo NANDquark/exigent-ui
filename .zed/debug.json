@@ -1,0 +1,22 @@
+[
+  {
+    "label": "Debug Karl2D Demo",
+    "adapter": "CodeLLDB",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/debug_karl2d_demo",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "build": {
+      "command": "odin",
+      "args": [
+        "build",
+        "demos/karl2d",
+        "-debug",
+        "-out:debug_karl2d_demo",
+        "-collection:exigent=.",
+        "-collection:karl2d=lib/karl2d",
+        "-collection:karl2d_exigent=karl2d_exigent"
+      ],
+      "cwd": "$ZED_WORKTREE_ROOT"
+    }
+  }
+]

@@ -1,4 +1,4 @@
-debug*
+debug_*
 build/
 *.bin
 *.exe
