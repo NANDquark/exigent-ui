@@ -7,10 +7,10 @@ import "core:time"
 
 Widget :: struct {
 	id:             Widget_ID,
-	// type:           Widget_Type,
 	parent:         ^Widget,
 	children:       [dynamic]^Widget,
 	layout:         Layout,
+	options:        Container_Options,
 	measured_size:  [2]f32,
 	content_size:   [2]f32,
 	intrinsic_size: [2]f32,
@@ -21,6 +21,30 @@ Widget :: struct {
 	draw_cmds:      [dynamic]Widget_Draw_Command,
 	draw_offset:    [2]f32,
 	scrollbox:      ^Scrollbox,
+}
+
+Anchor_Point :: enum {
+	Top_Left,
+	Top_Center,
+	Top_Right,
+	Center_Left,
+	Center,
+	Center_Right,
+	Bottom_Left,
+	Bottom_Center,
+	Bottom_Right,
+}
+
+Widget_Positioning :: enum {
+	Flow,
+	Anchored,
+}
+
+Container_Options :: struct {
+	positioning: Widget_Positioning,
+	anchor:      Anchor_Point,
+	pivot:       Maybe(Anchor_Point),
+	offset:      [2]f32,
 }
 
 Widget_Draw_Command :: union {
@@ -54,14 +78,18 @@ Widget_Draw_Sprite :: struct {
 widget_begin :: proc(
 	c: ^Context,
 	layout: Layout,
+	options := Container_Options{},
 	interactable := true,
 	caller: runtime.Source_Code_Location,
 	sub_id: int = 0,
 ) {
+	assert(c.widget_curr != nil || c.layer_curr != nil, "widget_begin without layer_begin")
+
 	w := new(Widget, c.temp_allocator)
 	id := widget_create_id(c, caller, sub_id)
 	w.id = id
 	w.layout = layout
+	w.options = options
 
 	if interactable {
 		w.interaction = widget_interaction(c, id)
@@ -80,14 +108,16 @@ widget_begin :: proc(
 
 	c.widget_curr = w
 
-	if c.widget_root == nil {
-		c.widget_root = c.widget_curr
+	if c.layer_curr != nil && c.layer_curr.root == nil {
+		c.layer_curr.root = c.widget_curr
 	}
 }
 
 widget_end :: proc(c: ^Context) {
 	if len(c.widget_stack) > 0 {
 		c.widget_curr = pop(&c.widget_stack)
+	} else {
+		c.widget_curr = nil
 	}
 }
 
@@ -95,7 +125,7 @@ Widget_ID :: distinct u32
 
 @(private = "file")
 Raw_Widget_ID :: struct #packed {
-	stack_id: u32,
+	scope_id: u32,
 	fp:       u32, // hashed filepath
 	line:     i32,
 	col:      i32,
@@ -108,12 +138,14 @@ widget_create_id :: proc(
 	caller: runtime.Source_Code_Location,
 	sub_id: int = 0,
 ) -> Widget_ID {
-	top_stack_id: u32
-	if len(c.widget_stack) > 0 {
-		top_stack_id = u32(c.widget_stack[len(c.widget_stack) - 1].id)
+	scope_id: u32
+	if c.widget_curr != nil {
+		scope_id = u32(c.widget_curr.id)
+	} else if c.layer_curr != nil {
+		scope_id = u32(c.layer_curr.id)
 	}
 	raw := Raw_Widget_ID {
-		stack_id = top_stack_id,
+		scope_id = scope_id,
 		fp       = hash.fnv32a(transmute([]u8)caller.file_path),
 		line     = caller.line,
 		col      = caller.column,
@@ -149,6 +181,29 @@ widget_pick :: proc(w: ^Widget, mouse_pos: [2]f32) -> (hovered: ^Widget, found: 
 	return w, true
 }
 
+@(private)
+layer_pick :: proc(
+	c: ^Context,
+	mouse_pos: [2]f32,
+) -> (
+	hovered: ^Widget,
+	captured: bool,
+	found: bool,
+) {
+	#reverse for &layer in c.layers {
+		hovered, ok := widget_pick(layer.root, mouse_pos)
+		if !ok {
+			continue
+		}
+		if hovered == layer.root && !layer.options.capture_pointer_empty {
+			continue
+		}
+		return hovered, hovered != layer.root || layer.options.capture_pointer_empty, true
+	}
+
+	return nil, false, false
+}
+
 Widget_Interaction :: struct {
 	hovered:  bool,
 	down:     bool, // held down for one or more frames
@@ -172,7 +227,7 @@ widget_interaction :: proc(c: ^Context, id: Widget_ID) -> Widget_Interaction {
 		}
 
 		if wi.released {
-			c.active_text_input = nil
+			active_text_input_clear(c)
 			c.active_widget_id = nil
 		}
 
@@ -210,20 +265,55 @@ is_hovered :: proc(c: ^Context) -> bool {
 	return c.widget_curr.id == c.hovered_widget_id
 }
 
-root :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, layout, false, caller, sub_id)
+layer_begin :: proc(
+	c: ^Context,
+	layout: Layout,
+	options := Layer_Options{},
+	caller := #caller_location,
+	sub_id: int = 0,
+) {
+	assert(c.layer_curr == nil, "layers cannot be nested")
+	assert(c.widget_curr == nil, "layer_begin must not be called inside a widget")
+
+	layer := Layer {
+		id      = widget_create_id(c, caller, sub_id),
+		options = options,
+	}
+	append(&c.layers, layer)
+	c.layer_curr = &c.layers[len(c.layers) - 1]
+	widget_begin(c, layout, interactable = false, caller = caller, sub_id = sub_id)
 }
 
-container_begin :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, layout, caller = caller, sub_id = sub_id)
+layer_end :: proc(c: ^Context) {
+	assert(c.layer_curr != nil, "layer_end without layer_begin")
+	assert(c.widget_curr == c.layer_curr.root, "every widget_begin must have a widget_end")
+
+	widget_end(c)
+	c.layer_curr = nil
+}
+
+container_begin :: proc(
+	c: ^Context,
+	layout: Layout,
+	options := Container_Options{},
+	caller := #caller_location,
+	sub_id: int = 0,
+) {
+	widget_begin(c, layout, options = options, caller = caller, sub_id = sub_id)
 }
 
 container_end :: proc(c: ^Context) {
 	widget_end(c)
 }
 
-panel_begin :: proc(c: ^Context, layout: Layout, caller := #caller_location, sub_id: int = 0) {
-	widget_begin(c, layout, caller = caller, sub_id = sub_id)
+panel_begin :: proc(
+	c: ^Context,
+	layout: Layout,
+	options := Container_Options{},
+	caller := #caller_location,
+	sub_id: int = 0,
+) {
+	widget_begin(c, layout, options = options, caller = caller, sub_id = sub_id)
 	background(c, c.theme.color.surface)
 	border(c, {type = .Square, thickness = 1, color = c.theme.color.border})
 }
@@ -325,7 +415,15 @@ text_input :: proc(
 
 	if c.widget_curr.interaction.released {
 		c.active_text_input = data
+		c.active_text_input_widget_id = c.widget_curr.id
+		c.active_text_input_layer_id = c.layer_curr.id
+		c.active_text_input_seen = true
 		data._focused_ts = time.now()
+	}
+	if data == c.active_text_input &&
+	   c.widget_curr.id == c.active_text_input_widget_id &&
+	   c.layer_curr.id == c.active_text_input_layer_id {
+		c.active_text_input_seen = true
 	}
 
 	txt := text_buffer_to_string(&data.text)

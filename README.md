@@ -14,8 +14,10 @@ theme := ui.theme_light(font)
 ui.init(ctx, theme = theme)
 ui.text_measure_init(ctx, nil, measure_width)
 
-ui.begin(ctx, width, height, ui.layout_fixed(width, height, .Column, .Center, .Center))
+ui.begin(ctx, width, height)
 defer ui.end(ctx)
+ui.layer_begin(ctx, ui.layout_fixed(width, height, .Column, .Center, .Center))
+defer ui.layer_end(ctx)
 
 th := ctx.theme
 ui.panel_begin(
@@ -34,7 +36,7 @@ ui.label(ctx, "Layout showcase", role = .Title)
 ui.button(ctx, ui.layout_fixed(170, 42), "Click me!")
 ```
 
-Rendering uses a Command queue design where widgets are iterated starting from the root following a Breadth-First Search (BFS) pattern. For each widget, one or more Commands to draw are pushed into the queue. The queue can then be iterated and drawn by any graphical engine. Currently the `demo` uses Raylib. 
+Rendering uses a Command queue design where widgets are iterated layer-by-layer in declaration order. For each widget, one or more Commands to draw are pushed into the queue. The queue can then be iterated and drawn by any graphical engine. Currently the `demo` uses Raylib.
 
 The name `exigent` means "requiring immediate action".
 
@@ -96,6 +98,12 @@ Run the Raylib demo from the repo root:
 
 ```sh
 ./demos/raylib/run.sh
+```
+
+Run the Raylib layers and anchors demo from the repo root:
+
+```sh
+./demos/layers/run.sh
 ```
 
 Build the Raylib web smoke demo from the repo root:

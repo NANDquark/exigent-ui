@@ -129,7 +129,7 @@ test_input_scroll :: proc(c: ^Context, delta: f32) {
 }
 
 test_input_char :: proc(c: ^Context, r: rune) {
-	input_apply_char(c, r)
+	append(&c.input_curr.frame_events, Char_Event{c = r})
 }
 
 @(test)

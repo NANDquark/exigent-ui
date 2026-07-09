@@ -112,9 +112,14 @@ layout_align_offset :: proc(align: Layout_Align, available, used: f32) -> f32 {
 @(private)
 layout_measure_tree :: proc(c: ^Context, w: ^Widget) -> [2]f32 {
 	content: [2]f32
+	flow_child_count := 0
 
 	for child in w.children {
 		child_size := layout_measure_tree(c, child)
+		if child.options.positioning != .Flow {
+			continue
+		}
+		flow_child_count += 1
 		switch w.layout.direction {
 		case .Column:
 			content.x = max(content.x, child_size.x)
@@ -124,8 +129,8 @@ layout_measure_tree :: proc(c: ^Context, w: ^Widget) -> [2]f32 {
 			content.y = max(content.y, child_size.y)
 		}
 	}
-	if len(w.children) > 1 {
-		gap_total := f32(len(w.children) - 1) * w.layout.gap
+	if flow_child_count > 1 {
+		gap_total := f32(flow_child_count - 1) * w.layout.gap
 		switch w.layout.direction {
 		case .Column:
 			content.y += gap_total
@@ -192,6 +197,12 @@ layout_position_tree :: proc(c: ^Context, w: ^Widget, origin: [2]f32, parent_cli
 
 	for child in w.children {
 		child_origin := [2]f32{content_rect.x, content_rect.y}
+		if child.options.positioning == .Anchored {
+			child_origin = layout_anchor_origin(content_rect, child.measured_size, child.options)
+			layout_position_tree(c, child, child_origin, w.clip)
+			continue
+		}
+
 		switch w.layout.direction {
 		case .Column:
 			child_origin.y += cursor
@@ -207,6 +218,44 @@ layout_position_tree :: proc(c: ^Context, w: ^Widget, origin: [2]f32, parent_cli
 		}
 		layout_position_tree(c, child, child_origin, w.clip)
 	}
+}
+
+@(private)
+layout_anchor_origin :: proc(parent_content_rect: Rect, child_size: [2]f32, options: Container_Options) -> [2]f32 {
+	pivot, ok := options.pivot.?
+	if !ok {
+		pivot = options.anchor
+	}
+
+	parent_pt := layout_anchor_point(parent_content_rect, options.anchor)
+	child_pt := layout_anchor_point(Rect{0, 0, child_size.x, child_size.y}, pivot)
+	return parent_pt + options.offset - child_pt
+}
+
+@(private)
+layout_anchor_point :: proc(r: Rect, anchor: Anchor_Point) -> [2]f32 {
+	switch anchor {
+	case .Top_Left:
+		return {r.x, r.y}
+	case .Top_Center:
+		return {r.x + r.w * 0.5, r.y}
+	case .Top_Right:
+		return {r.x + r.w, r.y}
+	case .Center_Left:
+		return {r.x, r.y + r.h * 0.5}
+	case .Center:
+		return {r.x + r.w * 0.5, r.y + r.h * 0.5}
+	case .Center_Right:
+		return {r.x + r.w, r.y + r.h * 0.5}
+	case .Bottom_Left:
+		return {r.x, r.y + r.h}
+	case .Bottom_Center:
+		return {r.x + r.w * 0.5, r.y + r.h}
+	case .Bottom_Right:
+		return {r.x + r.w, r.y + r.h}
+	}
+
+	return {r.x, r.y}
 }
 
 @(private)

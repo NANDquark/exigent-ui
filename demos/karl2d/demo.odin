@@ -86,9 +86,13 @@ build_ui :: proc() {
 		&state.ctx,
 		width,
 		height,
-		ui.layout_fixed(f32(width), f32(height), .Column, .Center, .Center),
 	)
 	defer ui.end(&state.ctx)
+	ui.layer_begin(
+		&state.ctx,
+		ui.layout_fixed(f32(width), f32(height), .Column, .Center, .Center),
+	)
+	defer ui.layer_end(&state.ctx)
 
 	ui.panel_begin(
 		&state.ctx,

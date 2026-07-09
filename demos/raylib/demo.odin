@@ -75,8 +75,10 @@ input :: proc(ctx: ^ui.Context) {
 update :: proc(ctx: ^ui.Context) {
 	prof_frame_part()
 
-	ui.begin(ctx, WIDTH, HEIGHT, ui.layout_fixed(WIDTH, HEIGHT, .Column, .Center, .Center)) // Update - Build UI
+	ui.begin(ctx, WIDTH, HEIGHT) // Update - Build UI
 	defer ui.end(ctx)
+	ui.layer_begin(ctx, ui.layout_fixed(WIDTH, HEIGHT, .Column, .Center, .Center))
+	defer ui.layer_end(ctx)
 
 	{
 		th := ctx.theme
@@ -105,11 +107,11 @@ update :: proc(ctx: ^ui.Context) {
 }
 
 title_label :: proc(ctx: ^ui.Context, txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.label(ctx, txt, .Left, .Top, caller, sub_id, role = .Title)
+	ui.label(ctx, txt, .Left, .Top, role = .Title, caller = caller, sub_id = sub_id)
 }
 
 section_label :: proc(ctx: ^ui.Context, txt: string, caller := #caller_location, sub_id: int = 0) {
-	ui.label(ctx, txt, .Left, .Top, caller, sub_id, role = .Section)
+	ui.label(ctx, txt, .Left, .Top, role = .Section, caller = caller, sub_id = sub_id)
 }
 
 field_label :: proc(
@@ -119,7 +121,7 @@ field_label :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) {
-	ui.label_sized(ctx, ui.layout_fixed(width, 34), txt, .Right, .Center, caller, sub_id)
+	ui.label_sized(ctx, ui.layout_fixed(width, 34), txt, .Right, .Center, caller = caller, sub_id = sub_id)
 }
 
 controls_section :: proc(ctx: ^ui.Context) {
@@ -214,7 +216,7 @@ scrollboxes_section :: proc(ctx: ^ui.Context) {
 					ctx,
 					ui.layout_fixed(200, 34),
 					fmt.tprintf("Button %d", i),
-					bg = ui.Color{140, 140, 140, 255},
+					bg_color = ui.Color{140, 140, 140, 255},
 					sub_id = i,
 				)
 				ui.container_end(ctx)

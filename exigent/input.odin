@@ -115,18 +115,20 @@ input_feed_external :: proc(
 	for e in events {
 		switch ev in e {
 		case Key_Event:
-			append(&c.input_curr.frame_events, Key_Event{key = ev.key, type = ev.type, handled = false})
+			append(
+				&c.input_curr.frame_events,
+				Key_Event{key = ev.key, type = ev.type, handled = false},
+			)
 		case Mouse_Event:
 			append(
 				&c.input_curr.frame_events,
-					Mouse_Event{button = ev.button, type = ev.type, handled = false},
-				)
+				Mouse_Event{button = ev.button, type = ev.type, handled = false},
+			)
 		case Char_Event:
-			input_apply_char(c, ev.c)
 			append(&c.input_curr.frame_events, Char_Event{c = ev.c, handled = false})
 		case Focus_Event:
 			if !ev.focused {
-				c.active_text_input = nil
+				active_text_input_clear(c)
 			}
 			append(&c.input_curr.frame_events, Focus_Event{focused = ev.focused, handled = false})
 		}
@@ -248,10 +250,20 @@ input_key_down_iterator_next :: proc(it: ^Key_Down_Iterator) -> (Key, bool) {
 
 @(private)
 input_apply_char :: proc(c: ^Context, r: rune) {
-	if c.active_text_input == nil do return
+	if !active_text_input_can_mutate(c) do return
 
 	bytes, len := utf8.encode_rune(r)
 	text_buffer_append(&c.active_text_input.text, bytes[:len])
+}
+
+@(private)
+input_apply_pending_text :: proc(c: ^Context) {
+	for e in c.input_curr.frame_events {
+		#partial switch ev in e {
+		case Char_Event:
+			input_apply_char(c, ev.c)
+		}
+	}
 }
 
 Frame_Event_Iterator :: struct {

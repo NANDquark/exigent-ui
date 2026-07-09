@@ -68,8 +68,13 @@ main_update :: proc "c" () -> bool {
 
 	width := int(rl.GetScreenWidth())
 	height := int(rl.GetScreenHeight())
-	ui.begin(&state.ctx, width, height, ui.layout_fixed(f32(width), f32(height), .Column, .Center, .Center))
+	ui.begin(&state.ctx, width, height)
+	ui.layer_begin(
+		&state.ctx,
+		ui.layout_fixed(f32(width), f32(height), .Column, .Center, .Center),
+	)
 	build_ui(&state.ctx)
+	ui.layer_end(&state.ctx)
 	ui.end(&state.ctx)
 
 	notify_memory_growth()
