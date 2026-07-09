@@ -7,6 +7,6 @@ repo_root="$(cd -- "${script_dir}/../.." && pwd)"
 cd "${repo_root}"
 
 exec odin run demos/karl2d \
-	-collection:exigent=. \
+	-collection:exigent=.\
 	-collection:karl2d=lib/karl2d \
 	"$@"

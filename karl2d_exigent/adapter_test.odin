@@ -2,7 +2,7 @@
 
 package karl2d_exigent
 
-import ui "../"
+import ui "../exigent"
 import "core:testing"
 import k2 "karl2d:."
 

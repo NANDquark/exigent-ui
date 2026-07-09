@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Exigent Raylib Web Demo</title>
+	<style>
+		html, body {
+			margin: 0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+			background: #0f1115;
+		}
+		canvas.emscripten {
+			display: block;
+			width: 100vw;
+			height: 100vh;
+		}
+	</style>
+	<script src="odin.js"></script>
+</head>
+<body>
+	<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+	<script>
+		const canvas = document.getElementById("canvas");
+
+		function resizeDemo() {
+			const width = Math.max(1, Math.floor(window.innerWidth));
+			const height = Math.max(1, Math.floor(window.innerHeight));
+			canvas.width = width;
+			canvas.height = height;
+			if (Module._web_window_size_changed) {
+				Module._web_window_size_changed(width, height);
+			}
+		}
+
+		var Module = {
+			canvas,
+			instantiateWasm(imports, successCallback) {
+				const memoryInterface = new odin.WasmMemoryInterface();
+				memoryInterface.setIntSize(4);
+
+				const odinImports = odin.setupDefaultImports(memoryInterface);
+				imports.odin_env = odinImports.odin_env;
+
+				const wasmPath = "index.wasm";
+				const instantiate = WebAssembly.instantiateStreaming(fetch(wasmPath), imports)
+					.catch(async () => {
+						const response = await fetch(wasmPath);
+						const bytes = await response.arrayBuffer();
+						return WebAssembly.instantiate(bytes, imports);
+					});
+
+				instantiate.then((result) => {
+					const instance = result.instance || result;
+					memoryInterface.setExports(instance.exports);
+					if (instance.exports.memory) {
+						memoryInterface.setMemory(instance.exports.memory);
+					}
+					successCallback(instance, result.module);
+				}).catch((err) => {
+					console.error(err);
+					throw err;
+				});
+
+				return {};
+			},
+			onRuntimeInitialized() {
+				if (Module._main_start) {
+					Module._main_start();
+				}
+				resizeDemo();
+
+				function frame() {
+					if (!Module._main_update || Module._main_update()) {
+						requestAnimationFrame(frame);
+					} else if (Module._main_end) {
+						Module._main_end();
+					}
+				}
+				requestAnimationFrame(frame);
+			},
+		};
+
+		window.addEventListener("resize", resizeDemo);
+	</script>
+	{{{ SCRIPT }}}
+</body>
+</html>

@@ -1,6 +1,6 @@
 package raylib_exigent
 
-import ui "../"
+import ui "../exigent"
 import "core:c"
 import "core:math"
 import "core:mem"

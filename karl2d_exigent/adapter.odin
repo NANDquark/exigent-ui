@@ -1,6 +1,6 @@
 package karl2d_exigent
 
-import ui "../"
+import ui "../exigent"
 import "core:math"
 import "core:mem"
 import k2 "karl2d:."

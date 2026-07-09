@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/ols.schema.json",
+  "collections": [
+    { "name": "exigent", "path": "." },
+    { "name": "karl2d", "path": "lib/karl2d" }
+  ],
+  "profile": "default",
+  "profiles": [
+    {
+      "name": "default",
+      "checker_path": ["exigent"],
+      "defines": { "ODIN_DEBUG": "false" }
+    }
+  ]
+}

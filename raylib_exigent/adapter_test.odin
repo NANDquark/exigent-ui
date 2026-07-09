@@ -2,7 +2,7 @@
 
 package raylib_exigent
 
-import ui "../"
+import ui "../exigent"
 import "core:testing"
 import rl "vendor:raylib"
 

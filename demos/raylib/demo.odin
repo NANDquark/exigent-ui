@@ -2,7 +2,7 @@ package demo
 
 import "base:runtime"
 import "core:fmt"
-import ui "exigent:."
+import ui "exigent:exigent"
 import rlx "exigent:raylib_exigent"
 import rl "vendor:raylib"
 
