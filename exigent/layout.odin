@@ -82,7 +82,7 @@ layout_fixed :: proc(
 	}
 }
 
-@(private)
+// An intrinsic layout must set a fixed size during widget creation via c.widget_curr.intrinsic_size
 layout_intrinsic :: proc() -> Layout {
 	return Layout {
 		width = size_intrinsic(),

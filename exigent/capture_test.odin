@@ -65,7 +65,7 @@ test_is_pointer_captured_true_when_child_widget_hovered :: proc(t: ^testing.T) {
 	test_input_mouse_pos(c, {10, 10})
 	begin(c, 100, 100)
 	layer_begin(c, layout_fixed(100, 100))
-	button(c, layout_fixed(30, 20), "A")
+	button(c, "A")
 	layer_end(c)
 	end(c)
 

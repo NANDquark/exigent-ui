@@ -76,6 +76,23 @@ Inset :: struct {
 	top, right, bottom, left: f32,
 }
 
+inset :: proc{
+	inset_square,
+	inset_even,
+}
+
+inset_square :: proc(i: f32) -> Inset {
+	return Inset{
+		top = i, right = i, bottom = i, left = i,
+	}
+}
+
+inset_even :: proc(left_right, top_bot: f32) -> Inset {
+	return Inset{
+		top = top_bot, right = left_right, bottom = top_bot, left = left_right,
+	}
+}
+
 rect_inset_ex :: proc(r: Rect, i: Inset) -> Rect {
 	r := r
 

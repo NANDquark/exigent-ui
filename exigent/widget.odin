@@ -42,9 +42,9 @@ Widget_Positioning :: enum {
 
 Container_Options :: struct {
 	positioning: Widget_Positioning,
-	anchor:      Anchor_Point,
-	pivot:       Maybe(Anchor_Point),
-	offset:      [2]f32,
+	anchor:      Anchor_Point, // attachment point on the parent
+	pivot:       Maybe(Anchor_Point), // attachment point on the child
+	offset:      [2]f32, // offset of child from pivot
 }
 
 Widget_Draw_Command :: union {
@@ -325,8 +325,8 @@ panel_end :: proc(c: ^Context) {
 
 button :: proc(
 	c: ^Context,
-	layout: Layout,
 	txt: string,
+	layout := Layout{},
 	background_image := Sprite{},
 	bg_color: Color = {},
 	text_color: Color = {},
@@ -334,8 +334,16 @@ button :: proc(
 	caller := #caller_location,
 	sub_id: int = 0,
 ) -> Widget_Interaction {
+	layout := layout
+	if layout == {} {
+		layout = layout_intrinsic()
+		layout.padding = inset(16, 8)
+	}
 	widget_begin(c, layout, interactable = !disabled, caller = caller, sub_id = sub_id)
 	defer widget_end(c)
+
+	txt_style := text_style(c, .Body)
+	c.widget_curr.intrinsic_size = {text_width_style(c, txt_style, txt), txt_style.line_height}
 
 	button_text_color := text_color if text_color != {} else c.theme.color.on_primary
 

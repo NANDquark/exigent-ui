@@ -35,7 +35,7 @@ test_layer_widget :: proc(c: ^Context, idx: int = 0) -> ^Widget {
 }
 
 test_same_callsite_button :: proc(c: ^Context, label: string, sub_id: int = 0) -> Widget_Interaction {
-	return button(c, layout_fixed(20, 20), label, sub_id = sub_id)
+	return button(c, label, sub_id = sub_id)
 }
 
 test_expect_rect_command_order :: proc(t: ^testing.T, c: ^Context, colors: []Color) {
@@ -61,7 +61,7 @@ test_prime_button_hover :: proc(c: ^Context, disabled := false) {
 	test_input_mouse_pos(c, {5, 5})
 	begin(c, 100, 100)
 	layer_begin(c, layout_fixed(100, 100))
-	button(c, layout_fixed(40, 20), "A", disabled = disabled)
+	button(c, "A", layout_fixed(40, 20), disabled = disabled)
 	layer_end(c)
 	end(c)
 	free_all(c.temp_allocator)
@@ -152,10 +152,10 @@ test_overlapping_widgets_pick_later_layer_first :: proc(t: ^testing.T) {
 	test_input_mouse_pos(c, {5, 5})
 	begin(c, 100, 100)
 	layer_begin(c, layout_fixed(100, 100), sub_id = 1)
-	button(c, layout_fixed(20, 20), "A", sub_id = 1)
+	button(c, "A", layout_fixed(20, 20), sub_id = 1)
 	layer_end(c)
 	layer_begin(c, layout_fixed(100, 100), sub_id = 2)
-	button(c, layout_fixed(20, 20), "B", sub_id = 2)
+	button(c, "B", layout_fixed(20, 20), sub_id = 2)
 	layer_end(c)
 	end(c)
 
@@ -176,7 +176,7 @@ test_disabled_button_reports_disabled_without_mouse_interaction :: proc(t: ^test
 
 	begin(c, 100, 100)
 	layer_begin(c, layout_fixed(100, 100))
-	interaction := button(c, layout_fixed(40, 20), "A", disabled = true)
+	interaction := button(c, "A", layout_fixed(40, 20), disabled = true)
 	layer_end(c)
 	end(c)
 
@@ -197,7 +197,7 @@ test_disabled_button_draws_muted_style :: proc(t: ^testing.T) {
 
 	begin(c, 100, 100)
 	layer_begin(c, layout_fixed(100, 100))
-	interaction := button(c, layout_fixed(70, 20), "A", disabled = true)
+	interaction := button(c, "A", layout_fixed(70, 20), disabled = true)
 	layer_end(c)
 	end(c)
 
@@ -238,7 +238,7 @@ test_empty_space_on_noncapturing_layer_passes_hover_to_lower_layer :: proc(t: ^t
 	test_input_mouse_pos(c, {5, 5})
 	begin(c, 100, 100)
 	layer_begin(c, layout_fixed(100, 100), sub_id = 1)
-	button(c, layout_fixed(20, 20), "A", sub_id = 1)
+	button(c, "A", layout_fixed(20, 20), sub_id = 1)
 	layer_end(c)
 	layer_begin(c, layout_fixed(100, 100), sub_id = 2)
 	layer_end(c)
@@ -260,7 +260,7 @@ test_empty_space_on_capturing_layer_blocks_lower_layer :: proc(t: ^testing.T) {
 	test_input_mouse_pos(c, {5, 5})
 	begin(c, 100, 100)
 	layer_begin(c, layout_fixed(100, 100), sub_id = 1)
-	button(c, layout_fixed(20, 20), "A", sub_id = 1)
+	button(c, "A", layout_fixed(20, 20), sub_id = 1)
 	layer_end(c)
 	layer_begin(c, layout_fixed(100, 100), Layer_Options{capture_pointer_empty = true}, sub_id = 2)
 	layer_end(c)
@@ -280,7 +280,7 @@ test_layout_auto_column_uses_fixed_and_intrinsic_children :: proc(t: ^testing.T)
 
 	test_layer_begin(c, 200, 100)
 	container_begin(c, layout_auto(.Column), sub_id = 1)
-	button(c, layout_fixed(30, 20), "A", sub_id = 1)
+	button(c, "A", layout_fixed(30, 20), sub_id = 1)
 	label(c, "Wide", sub_id = 2)
 	container_end(c)
 	layer_end(c)
@@ -303,7 +303,7 @@ test_layout_parent_reserves_child_border_footprint :: proc(t: ^testing.T) {
 
 	test_layer_begin(c, 200, 100)
 	container_begin(c, layout_auto(.Column), sub_id = 1)
-	button(c, layout_fixed(30, 20), "A", sub_id = 1)
+	button(c, "A", layout_fixed(30, 20), sub_id = 1)
 	container_end(c)
 	layer_end(c)
 	end(c)
@@ -328,7 +328,7 @@ test_layout_padding_adds_space_around_children :: proc(t: ^testing.T) {
 		layout_auto(.Column, padding = Inset{top = 3, right = 4, bottom = 5, left = 6}),
 		sub_id = 1,
 	)
-	button(c, layout_fixed(10, 10), "A", sub_id = 1)
+	button(c, "A", layout_fixed(10, 10), sub_id = 1)
 	container_end(c)
 	layer_end(c)
 	end(c)
@@ -387,8 +387,8 @@ test_layout_row_aligns_children_on_main_and_cross_axes :: proc(t: ^testing.T) {
 
 	test_layer_begin(c, 200, 100)
 	container_begin(c, layout_fixed(100, 50, .Row, .Center, .End), sub_id = 1)
-	button(c, layout_fixed(20, 10), "A", sub_id = 1)
-	button(c, layout_fixed(30, 20), "B", sub_id = 2)
+	button(c, "A", layout_fixed(20, 10), sub_id = 1)
+	button(c, "B", layout_fixed(30, 20), sub_id = 2)
 	container_end(c)
 	layer_end(c)
 	end(c)
@@ -411,8 +411,8 @@ test_layout_picking_uses_final_laid_out_rects :: proc(t: ^testing.T) {
 	test_input_mouse_pos(c, [2]f32{46, 31})
 	test_layer_begin(c, 200, 100)
 	container_begin(c, layout_fixed(100, 50, .Row, .Center, .End), sub_id = 1)
-	button(c, layout_fixed(20, 10), "A", sub_id = 1)
-	button(c, layout_fixed(30, 20), "B", sub_id = 2)
+	button(c, "A", layout_fixed(20, 10), sub_id = 1)
+	button(c, "B", layout_fixed(30, 20), sub_id = 2)
 	container_end(c)
 	layer_end(c)
 	end(c)
@@ -431,7 +431,7 @@ test_layout_commands_use_resolved_geometry :: proc(t: ^testing.T) {
 
 	test_layer_begin(c, 200, 100)
 	container_begin(c, layout_fixed(100, 50, .Row, .Center, .End), sub_id = 1)
-	button(c, layout_fixed(20, 10), "A", sub_id = 1)
+	button(c, "A", layout_fixed(20, 10), sub_id = 1)
 	container_end(c)
 	layer_end(c)
 	end(c)
@@ -584,8 +584,8 @@ test_children_inside_anchored_container_use_normal_layout :: proc(t: ^testing.T)
 		Container_Options{positioning = .Anchored, anchor = .Center},
 		sub_id = 1,
 	)
-	button(c, layout_fixed(20, 10), "A", sub_id = 1)
-	button(c, layout_fixed(30, 20), "B", sub_id = 2)
+	button(c, "A",layout_fixed(20, 10),  sub_id = 1)
+	button(c, "B", layout_fixed(30, 20), sub_id = 2)
 	container_end(c)
 	layer_end(c)
 	end(c)
